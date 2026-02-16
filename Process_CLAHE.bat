@@ -128,6 +128,40 @@ def optimize_clahe_parameters(img):
 
     return optimal_cl, (int(optimal_bs), int(optimal_bs))
 
+def add_header(image, clip_limit, grid_size):
+    """Add a header with parameter values above the image."""
+    h, w = image.shape[:2]
+    header_h = 50
+    
+    # Ensure image is BGR for colored text/header if needed, though input is typically grayscale
+    if len(image.shape) == 2:
+        img_bgr = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    else:
+        img_bgr = image.copy()
+        
+    final_img = np.full((h + header_h, w, 3), 255, dtype=np.uint8)
+    final_img[header_h:, :] = img_bgr
+    
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.6
+    thickness = 2
+    
+    # Format grid size for display
+    if isinstance(grid_size, (list, tuple)):
+        grid_str = f"{grid_size[0]}x{grid_size[1]}"
+    else:
+        grid_str = str(grid_size)
+        
+    text = f"Clip Limit: {clip_limit:.2f} | Grid Size: {grid_str}"
+    
+    (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, thickness)
+    text_x = (w - text_width) // 2
+    text_y = (header_h + text_height) // 2
+    
+    cv2.putText(final_img, text, (text_x, text_y), font, font_scale, (0, 0, 0), thickness)
+    
+    return final_img
+
 def apply_clahe(image_path, output_path, clip_limit=2.0, tile_grid_size=(8, 8), auto_optimize=False):
     if not os.path.exists(image_path):
         print(f"Error: Image not found at {image_path}")
@@ -150,9 +184,12 @@ def apply_clahe(image_path, output_path, clip_limit=2.0, tile_grid_size=(8, 8), 
     # Apply CLAHE
     clahe_img = clahe.apply(img)
 
+    # Add header with parameters
+    final_img = add_header(clahe_img, clip_limit, tile_grid_size)
+
     # Save output
-    cv2.imwrite(output_path, clahe_img)
-    print(f"Saved CLAHE corrected image to {output_path}")
+    cv2.imwrite(output_path, final_img)
+    print(f"Saved CLAHE corrected image with parameters to {output_path}")
 
 if __name__ == "__main__":
     import argparse

@@ -95,8 +95,8 @@ def apply_clahe_fixed(image, clip_limit=2.0, tile_grid_size=(8, 8)):
     return clahe_img
 
 
-def create_overlay(original_image, mask, confluency, alpha=0.4):
-    """Create overlay with transparent green mask and confluency text."""
+def create_overlay(original_image, mask, confluency, sigma, epsilon, alpha=0.4):
+    """Create overlay with transparent green mask and header text."""
     # Convert original to BGR if grayscale
     if len(original_image.shape) == 2:
         overlay_base = cv2.cvtColor(original_image, cv2.COLOR_GRAY2BGR)
@@ -110,127 +110,97 @@ def create_overlay(original_image, mask, confluency, alpha=0.4):
     # Blend with original
     result = cv2.addWeighted(overlay, alpha, overlay_base, 1 - alpha, 0)
 
-    # Add confluency text
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    font_scale = 1.5
-    thickness = 3
-    text = f"Confluency: {confluency:.2f}%"
-
-    # Get text size for positioning
-    (text_width, text_height), _ = cv2.getTextSize(text, font, font_scale, thickness)
-
-    # Position text at bottom center
+    # Add header
     h, w = result.shape[:2]
+    header_h = 50
+    # Create white canvas with extra height
+    final_img = np.full((h + header_h, w, 3), 255, dtype=np.uint8)
+    final_img[header_h:, :] = result
+
+    # Add text to header
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.6
+    thickness = 2
+    text = f"Sigma: {sigma} | Epsilon: {epsilon} | Confluency: {confluency:.2f}%"
+    
+    (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, thickness)
     text_x = (w - text_width) // 2
-    text_y = h - 30
-
-    # Draw text with white outline for visibility
+    text_y = (header_h + text_height) // 2
+    
     cv2.putText(
-        result, text, (text_x, text_y), font, font_scale, (255, 255, 255), thickness + 2
+        final_img, text, (text_x, text_y), font, font_scale, (0, 0, 0), thickness
     )
-    cv2.putText(result, text, (text_x, text_y), font, font_scale, (0, 0, 0), thickness)
 
-    return result
+    return final_img
 
 
 def create_comparison_image(
-    original, clahe_enhanced, final_overlay, filename, confluency, target_height=600
+    original, final_overlay, filename, confluency, target_height=600
 ):
     """
-    Create 3-panel comparison image:
-    Original | CLAHE Enhanced | Final Result with Overlay
+    Create 2-panel comparison image:
+    Original (padded) | Final Result with Overlay
     """
-    # Convert all to BGR for consistent display
+    # Convert original to BGR for consistent display
     if len(original.shape) == 2:
         orig_bgr = cv2.cvtColor(original, cv2.COLOR_GRAY2BGR)
     else:
         orig_bgr = original.copy()
 
-    if len(clahe_enhanced.shape) == 2:
-        clahe_bgr = cv2.cvtColor(clahe_enhanced, cv2.COLOR_GRAY2BGR)
-    else:
-        clahe_bgr = clahe_enhanced.copy()
-
-    # Resize to target height while maintaining aspect ratio
-    h, w = orig_bgr.shape[:2]
-    scale = target_height / h
-    new_w = int(w * scale)
+    # Get dimensions of final overlay (which includes header)
+    h_final, w_final = final_overlay.shape[:2]
+    
+    # Calculate scale based on target height for final image
+    scale = target_height / h_final
+    new_w = int(w_final * scale)
     new_h = target_height
-
-    orig_resized = cv2.resize(orig_bgr, (new_w, new_h))
-    clahe_resized = cv2.resize(clahe_bgr, (new_w, new_h))
+    
+    # Resize final overlay
     final_resized = cv2.resize(final_overlay, (new_w, new_h))
-
-    # Add labels
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    font_scale = 0.6
-    thickness = 2
-    color = (255, 255, 255)
-
-    # Label positions
-    label_y = 30
-
-    # Add labels to each panel (white text with black outline)
-    cv2.putText(
-        orig_resized,
-        "Original",
-        (10, label_y),
-        font,
-        font_scale,
-        (0, 0, 0),
-        thickness + 1,
-    )
-    cv2.putText(
-        orig_resized, "Original", (10, label_y), font, font_scale, color, thickness
-    )
-    cv2.putText(
-        clahe_resized,
-        "CLAHE Enhanced",
-        (10, label_y),
-        font,
-        font_scale,
-        (0, 0, 0),
-        thickness + 1,
-    )
-    cv2.putText(
-        clahe_resized,
-        "CLAHE Enhanced",
-        (10, label_y),
-        font,
-        font_scale,
-        color,
-        thickness,
-    )
-    # Final panel: black text with white outline for confluency
-    cv2.putText(
-        final_resized,
-        f"Result (Conf: {confluency:.1f}%)",
-        (10, label_y),
-        font,
-        font_scale,
-        (255, 255, 255),
-        thickness + 1,
-    )
-    cv2.putText(
-        final_resized,
-        f"Result (Conf: {confluency:.1f}%)",
-        (10, label_y),
-        font,
-        font_scale,
-        (0, 0, 0),
-        thickness,
-    )
+    
+    # For original image, we want it to match the content area of final_overlay
+    # final_overlay has header of 50px (unscaled).
+    # Original image height h_orig matches h_final - 50.
+    # So we resize original to match width of final_resized.
+    
+    h_orig, w_orig = orig_bgr.shape[:2]
+    
+    # Resize original to same width as final_resized, maintaining aspect ratio
+    # Actually, easiest way is to resize original to match new_w width
+    orig_resized_content = cv2.resize(orig_bgr, (new_w, int(h_orig * scale)))
+    
+    # Create padded original to match total height
+    # Pad top with white (header area)
+    pad_height = new_h - orig_resized_content.shape[0]
+    
+    if pad_height > 0:
+        orig_padded = np.full((new_h, new_w, 3), 255, dtype=np.uint8)
+        orig_padded[pad_height:, :] = orig_resized_content
+        
+        # Add "Original" text to header area
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.6
+        thickness = 2
+        text = "Original"
+        
+        (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, thickness)
+        text_x = (new_w - text_width) // 2
+        # Center in the whitespace area (pad_height)
+        text_y = (pad_height + text_height) // 2
+        
+        cv2.putText(orig_padded, text, (text_x, text_y), font, font_scale, (0, 0, 0), thickness)
+    else:
+         orig_padded = cv2.resize(orig_bgr, (new_w, new_h))
 
     # Create horizontal concatenation
-    comparison = np.hstack([orig_resized, clahe_resized, final_resized])
+    comparison = np.hstack([orig_padded, final_resized])
 
     # Add border between panels
     border_width = 3
     border_color = (0, 0, 0)
 
-    # Add vertical borders
+    # Add vertical border
     comparison[:, new_w : new_w + border_width] = border_color
-    comparison[:, 2 * new_w : 2 * new_w + border_width] = border_color
 
     return comparison
 
@@ -270,12 +240,16 @@ def process_single_image(input_path, output_dir, clip_limit=2.0, tile_grid_size=
     temp_path = os.path.join(output_dir, f"_temp_{filename}_clahe.png")
     cv2.imwrite(temp_path, clahe_enhanced)
 
+    # PHANTAST Parameters
+    p_sigma = 3.5
+    p_epsilon = 0.025
+
     try:
         # Run PHANTAST on CLAHE enhanced image
         confluency, mask = process_phantast(
             temp_path,
-            sigma=3.5,
-            epsilon=0.025,
+            sigma=p_sigma,
+            epsilon=p_epsilon,
             do_contrast_stretching=False,  # Skip contrast stretching since we used CLAHE
             do_halo_removal=True,
             minimum_fill_area=100,
@@ -302,7 +276,7 @@ def process_single_image(input_path, output_dir, clip_limit=2.0, tile_grid_size=
 
     # Step 3: Create overlay image
     print("Step 3: Creating overlay...")
-    overlay_img = create_overlay(original_gray, mask, confluency, alpha=0.4)
+    overlay_img = create_overlay(original_gray, mask, confluency, p_sigma, p_epsilon, alpha=0.4)
     overlay_path = os.path.join(output_dir, f"{filename}_overlay{ext}")
     cv2.imwrite(overlay_path, overlay_img)
     print(f"  Saved overlay: {overlay_path}")
@@ -311,7 +285,6 @@ def process_single_image(input_path, output_dir, clip_limit=2.0, tile_grid_size=
     print("Step 4: Creating comparison image...")
     comparison = create_comparison_image(
         original_gray,
-        clahe_enhanced,
         overlay_img,
         filename,
         confluency,
