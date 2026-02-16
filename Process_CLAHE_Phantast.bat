@@ -259,8 +259,9 @@ def process_single_image(input_path, output_dir, clip_limit=2.0, tile_grid_size=
     print(f"Image size: {original_gray.shape}")
 
     # Step 1: Apply CLAHE
-    print("Step 1: Applying CLAHE...")
-    clahe_enhanced = apply_clahe_fixed(original_gray, clip_limit, tile_grid_size)
+    print("Step 1: Applying CLAHE... (DISABLED)")
+    # clahe_enhanced = apply_clahe_fixed(original_gray, clip_limit, tile_grid_size)
+    clahe_enhanced = original_gray.copy()
 
     # Step 2: Process with PHANTAST
     print("Step 2: Running PHANTAST confluency detection...")
@@ -273,8 +274,8 @@ def process_single_image(input_path, output_dir, clip_limit=2.0, tile_grid_size=
         # Run PHANTAST on CLAHE enhanced image
         confluency, mask = process_phantast(
             temp_path,
-            sigma=1.6,
-            epsilon=0.05,
+            sigma=3.5,
+            epsilon=0.025,
             do_contrast_stretching=False,  # Skip contrast stretching since we used CLAHE
             do_halo_removal=True,
             minimum_fill_area=100,
