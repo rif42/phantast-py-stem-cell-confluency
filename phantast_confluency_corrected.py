@@ -417,7 +417,7 @@ def calculate_confluency(mask):
 
 
 def process_phantast(
-    image_path,
+    image_input,
     sigma=8.0,
     epsilon=0.05,
     do_contrast_stretching=True,
@@ -435,11 +435,20 @@ def process_phantast(
 ):
     """
     Complete PHANTAST pipeline.
+    Args:
+        image_input: Path to image (str) OR numpy array (BGR or Gray).
     """
     # Load image
-    image = cv2.imread(image_path)
-    if image is None:
-        raise ValueError(f"Could not load image: {image_path}")
+    if isinstance(image_input, str):
+        image = cv2.imread(image_input)
+        if image is None:
+            raise ValueError(f"Could not load image: {image_input}")
+        image_source_name = image_input
+    elif isinstance(image_input, np.ndarray):
+        image = image_input.copy()
+        image_source_name = "Memory Array"
+    else:
+        raise ValueError("Input must be a file path or numpy array")
 
     # Convert to grayscale
     if len(image.shape) == 3:
@@ -447,7 +456,7 @@ def process_phantast(
     else:
         image_gray = image.copy()
 
-    print(f"Processing image: {image_path}")
+    print(f"Processing image: {image_source_name}")
     print(f"Image size: {image_gray.shape}")
     print(f"Parameters: sigma={sigma}, epsilon={epsilon}")
 

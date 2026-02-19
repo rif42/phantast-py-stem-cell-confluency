@@ -241,7 +241,7 @@ def process_single_image(input_path, output_dir, clip_limit=2.0, tile_grid_size=
     cv2.imwrite(temp_path, clahe_enhanced)
 
     # PHANTAST Parameters
-    p_sigma = 3.5
+    p_sigma = 1.5
     p_epsilon = 0.025
 
     try:
