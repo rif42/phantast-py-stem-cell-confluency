@@ -1,0 +1,131 @@
+{
+    "_meta": {
+        "models": {
+            "pipeline": "The active sequence of processing operations currently being edited.",
+            "steps": "Individual processing nodes within the pipeline.",
+            "availableOperations": "Catalog of all image processing algorithms available to add.",
+            "presets": "Saved pipeline configurations that can be loaded."
+        },
+        "relationships": [
+            "The Builder edits one active Pipeline.",
+            "The Pipeline contains multiple ordered Steps.",
+            "Users add Steps from Available Operations.",
+            "Presets are saved copies of Pipelines."
+        ]
+    },
+    "pipeline": {
+        "id": "pipe-active-001",
+        "name": "New Experiment Pipeline",
+        "steps": [
+            {
+                "id": "step-101",
+                "order": 0,
+                "operationId": "op-grayscale",
+                "name": "Grayscale Conversion",
+                "isEnabled": true,
+                "params": {}
+            },
+            {
+                "id": "step-102",
+                "order": 1,
+                "operationId": "op-clahe",
+                "name": "CLAHE",
+                "isEnabled": true,
+                "params": {
+                    "clipLimit": 2.0,
+                    "tileGridSize": "(8,8)"
+                }
+            },
+            {
+                "id": "step-103",
+                "order": 2,
+                "operationId": "op-phantast",
+                "name": "Phantast Integration",
+                "isEnabled": true,
+                "params": {
+                    "sigma": 1.5,
+                    "epsilon": 0.05
+                }
+            }
+        ]
+    },
+    "availableOperations": [
+        {
+            "category": "Preprocessing",
+            "items": [
+                {
+                    "id": "op-grayscale",
+                    "name": "Grayscale Conversion",
+                    "description": "Converts color image to grayscale intensity map.",
+                    "defaultParams": {}
+                },
+                {
+                    "id": "op-resize",
+                    "name": "Resize / Downsample",
+                    "description": "Resizes image to target dimensions or scale factor.",
+                    "defaultParams": {
+                        "scale": 0.5
+                    }
+                }
+            ]
+        },
+        {
+            "category": "Enhancement",
+            "items": [
+                {
+                    "id": "op-clahe",
+                    "name": "CLAHE",
+                    "description": "Contrast Limited Adaptive Histogram Equalization.",
+                    "defaultParams": {
+                        "clipLimit": 2.0,
+                        "tileGridSize": "(8,8)"
+                    }
+                },
+                {
+                    "id": "op-gaussian",
+                    "name": "Gaussian Blur",
+                    "description": "Smooths image to reduce noise.",
+                    "defaultParams": {
+                        "sigma": 1.0
+                    }
+                }
+            ]
+        },
+        {
+            "category": "Analysis",
+            "items": [
+                {
+                    "id": "op-phantast",
+                    "name": "Phantast Integration",
+                    "description": "Calculates confluency using local contrast.",
+                    "defaultParams": {
+                        "sigma": 1.0,
+                        "epsilon": 0.05
+                    }
+                },
+                {
+                    "id": "op-threshold",
+                    "name": "Global Threshold",
+                    "description": "Binary thresholding.",
+                    "defaultParams": {
+                        "threshold": 128
+                    }
+                }
+            ]
+        }
+    ],
+    "presets": [
+        {
+            "id": "preset-001",
+            "name": "Standard Phantast",
+            "description": "Default workflow for good quality images.",
+            "stepCount": 3
+        },
+        {
+            "id": "preset-002",
+            "name": "Noisy Image Fix",
+            "description": "Includes extra denoising steps.",
+            "stepCount": 4
+        }
+    ]
+}

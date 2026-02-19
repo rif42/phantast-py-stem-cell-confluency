@@ -1,0 +1,48 @@
+{
+    "_meta": {
+        "models": {
+            "batchConfig": "Global settings for batch output formatting.",
+            "batchJob": "The execution context for processing a folder of images.",
+            "progressState": "Real-time status of the current batch operation.",
+            "jobReport": "Summary of results after a batch job completes."
+        },
+        "relationships": [
+            "The Application maintains one global BatchConfig.",
+            "A BatchJob interprets a Pipeline and applies it to multiple Images.",
+            "ProgressState tracks the active BatchJob.",
+            "JobReport summarizes the completed BatchJob."
+        ]
+    },
+    "batchConfig": {
+        "addHeader": true,
+        "headerHeight": 50,
+        "includeParameters": true,
+        "includeConfluency": true,
+        "outputFormat": "JPG"
+    },
+    "batchJob": {
+        "id": "job-batch-001",
+        "pipelineId": "pipe-active-001",
+        "inputFolder": "C:/Users/Rif42/Data/Experiment_A",
+        "outputFolder": "C:/Users/Rif42/Data/Experiment_A/Processed",
+        "totalFiles": 240
+    },
+    "progressState": {
+        "isProcessing": true,
+        "currentFileIndex": 42,
+        "totalFiles": 240,
+        "currentFilename": "image_043.jpg",
+        "percentComplete": 17.5,
+        "statusMessage": "Processing image 43 of 240..."
+    },
+    "jobReport": {
+        "jobId": "job-batch-001",
+        "completedAt": "2026-02-19T11:30:00Z",
+        "successCount": 238,
+        "failureCount": 2,
+        "failedFiles": [
+            "image_102.jpg",
+            "image_205.jpg"
+        ]
+    }
+}

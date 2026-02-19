@@ -1,0 +1,33 @@
+{
+    "_meta": {
+        "models": {
+            "phantastConfig": "Configuration for the terminal Phantast processing step.",
+            "analysisResult": "Output metrics calculated by the algorithm.",
+            "viewSettings": "UI state for controlling visualization overlays."
+        },
+        "relationships": [
+            "The Integration view manages one PhantastConfig.",
+            "The Config produces one AnalysisResult.",
+            "The ViewSettings control how the Result is displayed on the Image."
+        ]
+    },
+    "phantastConfig": {
+        "id": "step-phantast-final",
+        "isEnabled": true,
+        "params": {
+            "sigma": 1.2,
+            "epsilon": 0.05
+        }
+    },
+    "analysisResult": {
+        "confluencyPercent": 85.4,
+        "processedImageUrl": "assets/80_-1_processed.JPG",
+        "maskUrl": "assets/80_-1_mask.png",
+        "outlineUrl": "assets/80_-1_outline.png"
+    },
+    "viewSettings": {
+        "showMask": true,
+        "showOutline": false,
+        "opacity": 0.5
+    }
+}
