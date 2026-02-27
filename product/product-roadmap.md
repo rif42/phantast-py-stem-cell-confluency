@@ -2,14 +2,14 @@
 
 ## Sections
 
-### 1. Image Analysis Workspace
-The core UI for opening images, inspecting details with zoom/pan, and applying basic edits like cropping and annotations.
+### 1. Image Navigation & Inspection
+Managing the input (single images or folders) and tools for detailed examination (zoom, pan, ruler).
 
-### 2. Pipeline Builder
-The engine to create, reorder, and tune image processing steps like CLAHE and background subtraction.
+### 2. Pipeline Construction
+The core editor for adding, reordering, and toggling processing steps (including the default PHANTAST node).
 
-### 3. Phantast Integration
-Incorporating the confluency algorithm into the pipeline with visual overlays.
+### 3. Node Configuration
+The property sidebar for fine-tuning parameters and settings of each selected processing node.
 
-### 4. Batch Workflow
-Tools to apply a saved pipeline to multiple images and generate reports.
+### 4. Batch Execution & Output
+Applying the finalized pipeline across full datasets and managing the exported confluency results.

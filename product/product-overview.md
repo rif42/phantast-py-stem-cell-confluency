@@ -1,4 +1,4 @@
-# Phantast Lab
+    # Phantast Lab
 
 ## Description
 A desktop application designed to streamline the analysis of mesenchymal stem cell microscope images. It allows researchers to experiment with and build custom image processing pipelines to clean, enhance, and annotate raw images before calculating confluency using the PHANTAST algorithm.

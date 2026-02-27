@@ -1,5 +1,9 @@
 {
-  "primary": "#009B77",
-  "secondary": "#D4AF37",
-  "neutral": "#333333"
+  "primary": "#00B884",
+  "secondary": "#E8A317",
+  "neutral": "#121415",
+  "surface": "#1E2224",
+  "text": "#E8EAED",
+  "text-muted": "#9AA0A6",
+  "border": "#2D3336"
 }

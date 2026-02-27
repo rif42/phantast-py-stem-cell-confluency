@@ -1,0 +1,87 @@
+{
+    "_meta": {
+        "models": {
+            "pipeline": "A saved sequence of processing steps.",
+            "processNode": "An individual operation within a pipeline.",
+            "availableNode": "A catalog of available node types that can be added to the pipeline."
+        },
+        "relationships": [
+            "Pipeline contains many ProcessNodes ordered sequentially."
+        ]
+    },
+    "availableNodes": [
+        {
+            "type": "input",
+            "name": "Image Input",
+            "icon": "🖼️",
+            "description": "Loads the selected image into the pipeline."
+        },
+        {
+            "type": "adjust",
+            "name": "Brightness & Contrast",
+            "icon": "☀️",
+            "description": "Standardize brightness and contrast levels."
+        },
+        {
+            "type": "filter",
+            "name": "Gaussian Blur",
+            "icon": "💧",
+            "description": "Smooths the image to reduce noise."
+        },
+        {
+            "type": "crop",
+            "name": "Center Crop",
+            "icon": "✂️",
+            "description": "Crops the image to a specified dimension."
+        },
+        {
+            "type": "algorithm",
+            "name": "PHANTAST",
+            "icon": "🦠",
+            "description": "Calculates confluency using the Phase-Contrast algorithm."
+        }
+    ],
+    "pipeline": {
+        "id": "pipe-88x9",
+        "name": "Stem Cell Protocol Alpha",
+        "nodes": [
+            {
+                "id": "node-001",
+                "type": "input",
+                "name": "Original Image",
+                "description": "Loads raw 16-bit TIFF",
+                "icon": "🖼️",
+                "status": "active",
+                "enabled": true
+            },
+            {
+                "id": "node-002",
+                "type": "adjust",
+                "name": "CLAHE",
+                "description": "clip 2.0 | grid 8",
+                "helpText": "Contrast Limited Adaptive Histogram Equalization (CLAHE) is an advanced image processing technique used to enhance contrast by dividing images into small tiles and applying local histogram equalization",
+                "icon": "⚙️",
+                "status": "processing",
+                "enabled": true
+            },
+            {
+                "id": "node-003",
+                "type": "filter",
+                "name": "Gaussian Blur",
+                "description": "Sigma: 2.5",
+                "icon": "💧",
+                "status": "disabled",
+                "enabled": false
+            },
+            {
+                "id": "node-004",
+                "type": "algorithm",
+                "name": "PHANTAST Output",
+                "description": "Sigma: 1.4 | Epsilon: 0.03",
+                "icon": "🦠",
+                "status": "error",
+                "enabled": true
+            }
+        ]
+    }
+}
