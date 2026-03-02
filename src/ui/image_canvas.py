@@ -1,9 +1,11 @@
 import os
 from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsPixmapItem
-from PyQt6.QtCore import Qt, QPointF
+from PyQt6.QtCore import Qt, QPointF, pyqtSignal
 from PyQt6.QtGui import QPixmap, QWheelEvent, QMouseEvent
 
 class ImageCanvas(QGraphicsView):
+    zoom_changed = pyqtSignal(int)
+    
     def __init__(self, parent=None):
         super().__init__(parent)
         
@@ -45,6 +47,7 @@ class ImageCanvas(QGraphicsView):
         # Center and fit the image initially
         self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
         self.current_scale = self.transform().m11()
+        self.zoom_changed.emit(self.get_current_zoom_percentage())
         return True
         
     def set_pan_mode(self, active: bool):
@@ -66,6 +69,7 @@ class ImageCanvas(QGraphicsView):
         # Optional: Add boundary limits here (e.g. 0.1 to 10.0)
         self.scale(factor, factor)
         self.current_scale = self.transform().m11()
+        self.zoom_changed.emit(self.get_current_zoom_percentage())
         
     def get_current_zoom_percentage(self) -> int:
         """Returns the zoom percentage as an integer."""

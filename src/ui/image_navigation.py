@@ -183,6 +183,8 @@ class ImageNavigationWidget(QWidget):
         
         self.lbl_zoom = QLabel("100%")
         self.lbl_zoom.setObjectName("toolLabel")
+        self.lbl_zoom.setFixedWidth(45)
+        self.lbl_zoom.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         btn_zoom_in = QPushButton("+")
         btn_zoom_in.setObjectName("toolBtn")
@@ -198,6 +200,7 @@ class ImageNavigationWidget(QWidget):
         # Main Canvas Image
         self.image_canvas = ImageCanvas()
         self.image_canvas.setObjectName("canvasImage")
+        self.image_canvas.zoom_changed.connect(lambda pct: self.lbl_zoom.setText(f"{pct}%"))
         
         # Center Empty State Overlay
         self.empty_overlay = QWidget()
@@ -287,6 +290,11 @@ class ImageNavigationWidget(QWidget):
         fe_layout.addWidget(self.file_list, stretch=1)
         
         layout.addWidget(self.folder_explorer_widget, stretch=1)
+        
+        # Spacer for SINGLE mode
+        self.spacer_widget = QWidget()
+        self.spacer_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        layout.addWidget(self.spacer_widget)
         
         # Metadata Section
         self.metadata_widget = QWidget()
@@ -382,10 +390,12 @@ class ImageNavigationWidget(QWidget):
             self.input_node_title.setText("Original")
             self.input_node_subtitle.setText(filename)
             self.folder_explorer_widget.hide()
+            self.spacer_widget.show()
         elif self.mode == "FOLDER":
             self.input_node_title.setText("Sample Data")
             self.input_node_subtitle.setText(subtitle)
             self.folder_explorer_widget.show()
+            self.spacer_widget.hide()
             
         # Right Panel Metadata Updates
         self.filename_label.setText(filename)
@@ -466,9 +476,12 @@ class ImageNavigationWidget(QWidget):
                 padding: 4px;
             }
             #toolLabel {
+                background-color: #121415;
+                border-radius: 4px;
                 color: #9AA0A6;
                 font-size: 12px;
                 font-family: 'JetBrains Mono';
+                padding: 4px 0px;
             }
             #panelHeader {
                 color: #9AA0A6;
