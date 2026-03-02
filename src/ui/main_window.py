@@ -10,6 +10,8 @@ from PyQt6.QtCore import Qt
 # Import our custom components
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 from src.ui.image_navigation import ImageNavigationWidget
+from src.models.image_model import ImageSessionModel
+from src.controllers.image_controller import ImageNavigationController
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -79,9 +81,11 @@ class MainWindow(QMainWindow):
         # Base paths for data
         base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../product/sections/"))
         
-        # 1. Image Navigation View
-        data_path_img = os.path.join(base_dir, "image-navigation-inspection/data.json")
-        self.view_img = ImageNavigationWidget(data_path_img)
+        # 1. Image Navigation MVC
+        self.img_model = ImageSessionModel()
+        self.view_img = ImageNavigationWidget()
+        self.img_controller = ImageNavigationController(self.img_model, self.view_img)
+        
         self.main_layout.addWidget(self.view_img)
 
 if __name__ == "__main__":

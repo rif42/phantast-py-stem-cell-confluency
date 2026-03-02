@@ -7,8 +7,10 @@ from PyQt6.QtTest import QTest
 from PyQt6.QtCore import Qt
 
 # Ensure we can import the src modules
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
-from sections.image_navigation_inspection.views.image_navigation import ImageNavigationWidget
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src')))
+from ui.image_navigation import ImageNavigationWidget
+from models.image_model import ImageSessionModel
+from controllers.image_controller import ImageNavigationController
 
 app = QApplication(sys.argv)
 
@@ -17,24 +19,26 @@ TEST_FOLDER_PATH = r"e:\work\stemcell\phantast-py\testfolder"
 
 class TestImageNavigationUI(unittest.TestCase):
     def setUp(self):
-        # Create a real widget instance
+        # Create MVC instances
+        self.model = ImageSessionModel()
         self.widget = ImageNavigationWidget()
+        self.controller = ImageNavigationController(self.model, self.widget)
         self.widget.show()
 
-    @patch('sections.image_navigation_inspection.views.image_navigation.QFileDialog.getOpenFileName')
+    @patch('src.ui.image_navigation.QFileDialog.getOpenFileName')
     def test_a_open_single_image_click(self, mock_getOpenFileName):
         """Simulate clicking 'Open an Image' with test data"""
         mock_getOpenFileName.return_value = (TEST_IMAGE_PATH, "Images (*.*)")
         
         # Verify initial UI state uses the empty overlay
-        self.assertEqual(self.widget.mode, "EMPTY")
+        self.assertEqual(self.model.mode, "EMPTY")
         self.assertTrue(self.widget.empty_overlay.isVisible())
 
         # Programmatically click the button
         QTest.mouseClick(self.widget.btn_open_img, Qt.MouseButton.LeftButton)
 
-        # Verify UI transitions to SINGLE mode
-        self.assertEqual(self.widget.mode, "SINGLE")
+        # Verify UI transitions to SINGLE mode via the Model
+        self.assertEqual(self.model.mode, "SINGLE")
         self.assertTrue(self.widget.left_panel.isVisible())
         self.assertTrue(self.widget.right_panel.isVisible())
         self.assertFalse(self.widget.empty_overlay.isVisible())
@@ -44,7 +48,7 @@ class TestImageNavigationUI(unittest.TestCase):
         self.assertNotEqual(dims, "")
         self.assertNotEqual(dims, "-")
 
-    @patch('sections.image_navigation_inspection.views.image_navigation.QFileDialog.getExistingDirectory')
+    @patch('src.ui.image_navigation.QFileDialog.getExistingDirectory')
     def test_b_open_folder_click(self, mock_getExistingDirectory):
         """Simulate clicking 'Open a Folder' with test data"""
         mock_getExistingDirectory.return_value = TEST_FOLDER_PATH
@@ -52,8 +56,8 @@ class TestImageNavigationUI(unittest.TestCase):
         # Programmatically click the button
         QTest.mouseClick(self.widget.btn_open_folder, Qt.MouseButton.LeftButton)
 
-        # Verify UI transitions to FOLDER mode  
-        self.assertEqual(self.widget.mode, "FOLDER")
+        # Verify UI transitions to FOLDER mode via the Model  
+        self.assertEqual(self.model.mode, "FOLDER")
         self.assertTrue(self.widget.folder_explorer_widget.isVisible())
         
         # Verify folder list populated.

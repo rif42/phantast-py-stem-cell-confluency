@@ -3,9 +3,7 @@ from PyQt6.QtWidgets import (
     QSpacerItem, QSizePolicy, QFrame, QScrollArea, QListWidget, QListWidgetItem, QFileDialog
 )
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QImageReader, QImage
-import json
-import os
+from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor
 
 from .image_canvas import ImageCanvas
 
@@ -15,32 +13,23 @@ class ImageNavigationWidget(QWidget):
     Handles the central canvas, the floating toolbar, and properties panel.
     """
     
-    # Signals
-    image_selected = pyqtSignal(str) # Emits image ID
-    mask_toggled = pyqtSignal(str, bool) # Emits image ID, visibility
-    tool_activated = pyqtSignal(str) # Emits tool name
+    # Signals for Controller
+    open_single_image_requested = pyqtSignal(str)
+    open_folder_requested = pyqtSignal(str)
+    file_selected = pyqtSignal(str)
+    
+    # Tool Signals
+    mask_toggled = pyqtSignal(bool)
+    tool_activated = pyqtSignal(str) 
 
-    def __init__(self, data_path: str = None):
+    def __init__(self):
         super().__init__()
         
-        self.images = []
-        self.active_image = None
-        self.current_folder = None
         self.mode = "EMPTY" # EMPTY, SINGLE, FOLDER
         
-        # Keep old data parsing for quick fallback, though we want real files eventually
-        if data_path and os.path.exists(data_path):
-            with open(data_path, 'r') as f:
-                data = json.load(f)
-                self.images = data.get('images', [])
-                for img in self.images:
-                    if img.get('selected'):
-                        self.active_image = img
-                        break
-
         self.init_ui()
         self.apply_styles()
-        self.update_ui_state()
+        self.set_mode("EMPTY")
 
     def init_ui(self):
         # We need a layout that allows the floating toolbar to sit on top of the image canvas
@@ -249,17 +238,23 @@ class ImageNavigationWidget(QWidget):
         container_layout.addWidget(self.image_canvas, stretch=1)
         
         # Bottom controls (Mask toggle placeholder)
-        if self.active_image and self.active_image.get('confluencyResult'):
-            bottom_controls = QHBoxLayout()
-            bottom_controls.setContentsMargins(16, 0, 16, 16)
-            bottom_controls.addStretch()
-            
-            mask_toggle = QPushButton("Toggle Mask")
-            mask_toggle.setObjectName("secondaryButton")
-            mask_toggle.setCheckable(True)
-            mask_toggle.setChecked(self.active_image['confluencyResult'].get('maskVisible', False))
-            bottom_controls.addWidget(mask_toggle)
-            container_layout.addLayout(bottom_controls)
+        self.mask_toggle_widget = QWidget()
+        bottom_controls = QHBoxLayout(self.mask_toggle_widget)
+        bottom_controls.setContentsMargins(16, 0, 16, 16)
+        bottom_controls.addStretch()
+        
+        self.btn_mask_toggle = QPushButton("Toggle Mask")
+        self.btn_mask_toggle.setObjectName("secondaryButton")
+        self.btn_mask_toggle.setCheckable(True)
+        self.btn_mask_toggle.setChecked(False)  # Default
+        # Connect to custom signal
+        self.btn_mask_toggle.toggled.connect(self.mask_toggled.emit)
+        bottom_controls.addWidget(self.btn_mask_toggle)
+        
+        # Hide it by default until a valid image with mask is loaded
+        self.mask_toggle_widget.hide()
+        
+        container_layout.addWidget(self.mask_toggle_widget)
         
         layout.addWidget(container)
         return area
@@ -343,38 +338,23 @@ class ImageNavigationWidget(QWidget):
 
     def on_file_selected(self, item):
         filename = item.text()
-        filepath = os.path.join(self.current_folder, filename)
-        self.active_image = {'filename': filename, 'filepath': filepath}
-        self.update_metadata_ui()
+        self.file_selected.emit(filename)
 
     def action_open_image(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Select Input Image", "", "Images (*.png *.jpg *.jpeg *.tif *.tiff)")
         if file_path:
-            self.mode = "SINGLE"
-            self.active_image = {'filename': os.path.basename(file_path), 'filepath': file_path}
-            self.update_ui_state()
+            self.open_single_image_requested.emit(file_path)
 
     def action_open_folder(self):
         folder_path = QFileDialog.getExistingDirectory(self, "Select Input Folder")
         if folder_path:
-            self.mode = "FOLDER"
-            self.current_folder = folder_path
-            
-            # Populate File List
-            self.file_list.clear()
-            valid_exts = ('.png', '.jpg', '.jpeg', '.tif', '.tiff')
-            files = [f for f in os.listdir(folder_path) if f.lower().endswith(valid_exts)]
-            for file in files:
-                self.file_list.addItem(file)
-                
-            if files:
-                self.active_image = {'filename': files[0], 'filepath': os.path.join(folder_path, files[0])}
-                self.file_list.setCurrentRow(0)
-            else:
-                 self.active_image = None
-            self.update_ui_state()
+            self.open_folder_requested.emit(folder_path)
 
-    def update_ui_state(self):
+    def set_mode(self, mode: str):
+        self.mode = mode
+        self._update_visibility()
+        
+    def _update_visibility(self):
         if self.mode == "EMPTY":
             self.left_panel.hide()
             self.right_panel.hide()
@@ -388,60 +368,35 @@ class ImageNavigationWidget(QWidget):
             self.toolbar_container_widget.show()
             self.image_canvas.show()
             
-            # Update Left Panel Copywriting based on mode
-            if self.mode == "SINGLE":
-                self.input_node_title.setText("Original")
-                self.input_node_subtitle.setText(self.active_image.get('filename') if self.active_image else "")
-                self.folder_explorer_widget.hide()
-            elif self.mode == "FOLDER":
-                self.input_node_title.setText("Sample Data")
-                file_count = self.file_list.count()
-                self.input_node_subtitle.setText(f"{file_count} Files")
-                self.folder_explorer_widget.show()
-                
-            self.update_metadata_ui()
+    def update_file_list(self, files: list):
+        self.file_list.clear()
+        for f in files:
+            self.file_list.addItem(f)
             
-    def update_metadata_ui(self):
-        if self.active_image:
-            self.filename_label.setText(self.active_image.get('filename', ''))
-            filepath = self.active_image.get('filepath')
+        if files:
+            self.file_list.setCurrentRow(0)
+
+    def update_metadata_display(self, filename: str, subtitle: str, dimensions: str, bitdepth: str, channels: str, filesize: str):
+        # Left Panel Updates
+        if self.mode == "SINGLE":
+            self.input_node_title.setText("Original")
+            self.input_node_subtitle.setText(filename)
+            self.folder_explorer_widget.hide()
+        elif self.mode == "FOLDER":
+            self.input_node_title.setText("Sample Data")
+            self.input_node_subtitle.setText(subtitle)
+            self.folder_explorer_widget.show()
             
-            if filepath and os.path.exists(filepath):
-                # Load image into canvas
-                self.image_canvas.load_image(filepath)
-                self.update_zoom_label()
-                
-                # Fetch Real Image Metadata
-                reader = QImageReader(filepath)
-                size = reader.size()
-                if size.isValid():
-                    self.row_dimensions.setText(f"{size.width()} x {size.height()}")
-                else:
-                    self.row_dimensions.setText("Unknown")
-                    
-                # Bit depth and Channels (Approximated from Qt format if not raw)
-                img_format = reader.imageFormat()
-                if img_format == QImage.Format.Format_Grayscale8:
-                    self.row_bitdepth.setText("8-bit")
-                    self.row_channels.setText("Grayscale (1)")
-                elif img_format == QImage.Format.Format_Grayscale16:
-                    self.row_bitdepth.setText("16-bit")
-                    self.row_channels.setText("Grayscale (1)")
-                else:
-                    self.row_bitdepth.setText("8-bit/channel") # typical default
-                    self.row_channels.setText("RGB (3)")
-                
-                # File Size
-                file_size_bytes = os.path.getsize(filepath)
-                if file_size_bytes > 1024 * 1024:
-                    self.row_filesize.setText(f"{file_size_bytes / (1024 * 1024):.2f} MB")
-                else:
-                    self.row_filesize.setText(f"{file_size_bytes / 1024:.0f} KB")
-            else:
-                self.row_dimensions.setText("-")
-                self.row_bitdepth.setText("-")
-                self.row_channels.setText("-")
-                self.row_filesize.setText("-")
+        # Right Panel Metadata Updates
+        self.filename_label.setText(filename)
+        self.row_dimensions.setText(dimensions)
+        self.row_bitdepth.setText(bitdepth)
+        self.row_channels.setText(channels)
+        self.row_filesize.setText(filesize)
+
+    def load_image_to_canvas(self, filepath: str):
+        self.image_canvas.load_image(filepath)
+        self.update_zoom_label()
 
     # --- Interaction Handlers ---
     def toggle_pan_mode(self, checked):
