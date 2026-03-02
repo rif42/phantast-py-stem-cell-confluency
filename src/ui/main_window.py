@@ -9,7 +9,7 @@ from PyQt6.QtCore import Qt
 
 # Import our custom components
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-from src.sections.image_navigation_inspection.views.image_navigation import ImageNavigationWidget
+from src.ui.image_navigation import ImageNavigationWidget
 
 class MainWindow(QMainWindow):
     def __init__(self):
