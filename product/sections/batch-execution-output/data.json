@@ -1,0 +1,127 @@
+{
+    "_meta": {
+        "models": {
+            "BatchJob": "An active or completed pipeline run across a folder of images, tracking progress, status, and input/output paths.",
+            "ConfluencyResult": "The detailed data output (confluency percentage, area metrics) generated for each individual image processed in the batch.",
+            "ProcessedImage": "References the original and intermediate processed states (node outputs) for a specific image, allowing deep dive inspection."
+        },
+        "relationships": [
+            "Each BatchJob processes many Images and generates many ConfluencyResults.",
+            "Each ConfluencyResult relates to a specific Image and optionally contains a ProcessedImage stack for inspection."
+        ]
+    },
+    "batchJob": {
+        "id": "job-1004",
+        "name": "Line 2B Differentiation - Day 4",
+        "pipelineId": "pipeline-001",
+        "inputFolder": "C:/MicroscopeData/Line_2B/Day_4/",
+        "outputFolder": "C:/MicroscopeData/Line_2B/Day_4/Phantast_Output/",
+        "totalImages": 8,
+        "processedImages": 8,
+        "status": "completed",
+        "startedAt": "2024-03-15T09:00:00Z",
+        "completedAt": "2024-03-15T09:05:22Z"
+    },
+    "results": [
+        {
+            "id": "res-001",
+            "imageName": "Well_A1_Field_1.tiff",
+            "confluencyPercentage": 78.4,
+            "totalCellArea": 1254400,
+            "totalImageArea": 1600000,
+            "status": "success",
+            "processedImage": {
+                "originalPath": "Well_A1_Field_1.tiff",
+                "steps": [
+                    {
+                        "nodeName": "CLAHE",
+                        "path": "Step1_CLAHE_Well_A1_Field_1.tiff"
+                    },
+                    {
+                        "nodeName": "Gaussian Blur",
+                        "path": "Step2_Blur_Well_A1_Field_1.tiff"
+                    },
+                    {
+                        "nodeName": "PHANTAST Output",
+                        "path": "FinalMask_Well_A1_Field_1.tiff"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "res-002",
+            "imageName": "Well_A1_Field_2.tiff",
+            "confluencyPercentage": 82.1,
+            "totalCellArea": 1313600,
+            "totalImageArea": 1600000,
+            "status": "success",
+            "processedImage": {
+                "originalPath": "Well_A1_Field_2.tiff",
+                "steps": [
+                    {
+                        "nodeName": "CLAHE",
+                        "path": "Step1_CLAHE_Well_A1_Field_2.tiff"
+                    },
+                    {
+                        "nodeName": "Gaussian Blur",
+                        "path": "Step2_Blur_Well_A1_Field_2.tiff"
+                    },
+                    {
+                        "nodeName": "PHANTAST Output",
+                        "path": "FinalMask_Well_A1_Field_2.tiff"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "res-003",
+            "imageName": "Well_A2_Field_1.tiff",
+            "confluencyPercentage": 45.2,
+            "totalCellArea": 723200,
+            "totalImageArea": 1600000,
+            "status": "success"
+        },
+        {
+            "id": "res-004",
+            "imageName": "Well_A2_Field_2.tiff",
+            "confluencyPercentage": 43.8,
+            "totalCellArea": 700800,
+            "totalImageArea": 1600000,
+            "status": "success"
+        },
+        {
+            "id": "res-005",
+            "imageName": "Well_B1_Field_1.tiff",
+            "confluencyPercentage": 91.5,
+            "totalCellArea": 1464000,
+            "totalImageArea": 1600000,
+            "status": "success"
+        },
+        {
+            "id": "res-006",
+            "imageName": "Well_B1_Field_2.tiff",
+            "confluencyPercentage": 88.9,
+            "totalCellArea": 1422400,
+            "totalImageArea": 1600000,
+            "status": "success"
+        },
+        {
+            "id": "res-007",
+            "imageName": "Well_B2_Field_1.tiff",
+            "confluencyPercentage": 0,
+            "totalCellArea": 0,
+            "totalImageArea": 1600000,
+            "status": "error",
+            "errorMessage": "Corrupted image header: unable to read TIFF metadata."
+        },
+        {
+            "id": "res-008",
+            "imageName": "Well_B2_Field_2.tiff",
+            "confluencyPercentage": 12.4,
+            "totalCellArea": 198400,
+            "totalImageArea": 1600000,
+            "status": "warning",
+            "errorMessage": "Low contrast detected. Pipeline may be inaccurate."
+        }
+    ]
+}
