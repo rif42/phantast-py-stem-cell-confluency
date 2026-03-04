@@ -1,8 +1,33 @@
-Here is the reformatted, concise, and compact version of `AGENTS.md`.
-
 # PhantastLab AI Agent Guidelines
 
-**Context:** PyQt desktop app for image processing/segmentation.
+**Context:** PyQt6 desktop app for stem cell image processing/confluency analysis. **Commit:** 65ad532
+
+## STRUCTURE
+```
+.
+├── src/                    # Main application (MVC)
+│   ├── main.py            # Entry point
+│   ├── ui/                # Views (7 files)
+│   ├── models/            # Data layer (2 files)
+│   └── controllers/       # Glue layer (2 files)
+├── shell/                 # Prototype/reference app (19 files)
+│   ├── shell/             # Main window, navigation
+│   ├── sections/          # 3 section views
+│   ├── core/              # Pipeline logic
+│   └── gui/               # GUI components
+├── CLAHE.py               # Contrast Limited AHE
+└── phantast_confluency_corrected.py
+```
+
+## WHERE TO LOOK
+| Task | Location | Notes |
+|------|----------|-------|
+| Add UI view | src/ui/ | Follow existing widget patterns |
+| Add pipeline step | shell/core/ | Implement PipelineStep interface |
+| Fix image loading | src/models/image_model.py | |
+| Theme/styling | src/ui/*.py | Search for #121415, #00B884 |
+| Main app entry | src/main.py | |
+| Prototype features | shell/sections/ | QStackedWidget navigation |
 
 ## 🛑 PHASE 1: PLAN MODE (Read-Only)
 
