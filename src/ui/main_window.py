@@ -11,6 +11,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 
+from .image_navigation import ImageNavigationWidget
+
 
 class MainWindow(QMainWindow):
     """Main application window with dark theme header and content area."""
@@ -67,12 +69,6 @@ class MainWindow(QMainWindow):
             background-color: #E8A317;
             border-radius: 16px;
         }
-        
-        /* CONTENT PLACEHOLDER */
-        QLabel#placeholderLabel {
-            color: #9AA0A6;
-            font-size: 14px;
-        }
         """
         self.setStyleSheet(style)
 
@@ -107,19 +103,9 @@ class MainWindow(QMainWindow):
         self.main_layout.addWidget(header)
 
     def setup_content(self):
-        """Create the content area (placeholder for now)."""
-        content = QWidget()
-        content.setObjectName("contentArea")
-        content_layout = QVBoxLayout(content)
-        content_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        # Placeholder text
-        placeholder = QLabel("Content Area - Phase 2 implementation")
-        placeholder.setObjectName("placeholderLabel")
-        placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        content_layout.addWidget(placeholder)
-        self.main_layout.addWidget(content, 1)  # Stretch to fill remaining space
+        """Create the content area with ImageNavigationWidget."""
+        self.image_nav_widget = ImageNavigationWidget()
+        self.main_layout.addWidget(self.image_nav_widget, 1)
 
 
 if __name__ == "__main__":

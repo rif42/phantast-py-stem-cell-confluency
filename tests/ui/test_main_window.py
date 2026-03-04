@@ -23,11 +23,13 @@ class TestMainWindow:
         assert header is not None
         assert header.height() == 56
 
-    def test_content_area_exists(self, qtbot):
-        """Test that content area exists."""
+    def test_image_nav_widget_exists(self, qtbot):
+        """Test that image navigation widget exists."""
+        from src.ui.image_navigation import ImageNavigationWidget
+
         window = MainWindow()
         qtbot.addWidget(window)
         window.show()
 
-        content = window.findChild(QWidget, "contentArea")
-        assert content is not None
+        assert window.image_nav_widget is not None
+        assert isinstance(window.image_nav_widget, ImageNavigationWidget)

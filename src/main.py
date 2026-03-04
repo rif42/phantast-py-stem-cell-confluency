@@ -1,17 +1,23 @@
 import sys
-import os
-
-# Append the project root to sys.path so that absolute imports work dynamically
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
 from PyQt6.QtWidgets import QApplication
 from src.ui.main_window import MainWindow
+from src.models.image_model import ImageSessionModel
+from src.controllers.image_controller import ImageNavigationController
+
 
 def main():
     app = QApplication(sys.argv)
+
+    # Create main window
     window = MainWindow()
+
+    # Setup MVC for image navigation
+    model = ImageSessionModel()
+    controller = ImageNavigationController(model, window.image_nav_widget)
+
     window.show()
     sys.exit(app.exec())
+
 
 if __name__ == "__main__":
     main()
