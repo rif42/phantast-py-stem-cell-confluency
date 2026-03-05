@@ -2,8 +2,15 @@ import sys
 import os
 import json
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QPushButton, QFrame, QSizePolicy
+    QApplication,
+    QMainWindow,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QFrame,
+    QSizePolicy,
 )
 from PyQt6.QtCore import Qt
 
@@ -13,13 +20,12 @@ from src.ui.image_navigation import ImageNavigationWidget
 from src.models.image_model import ImageSessionModel
 from src.controllers.image_controller import ImageNavigationController
 
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Phantast Lab")
         self.resize(1300, 850)
-
-        self.apply_stylesheet()
 
         # Core Container
         self.main_container = QWidget()
@@ -29,64 +35,50 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.main_container)
 
         self.setup_header()
-        
-        self.load_views()
 
-    def apply_stylesheet(self):
-        style = """
-        QMainWindow, QWidget {
-            background-color: #121415;
-            color: #E8EAED;
-            font-family: "Inter", "Segoe UI", sans-serif;
-            font-size: 13px;
-        }
-        
-        /* HEADER */
-        #AppHeader {
-            background-color: #121415;
-            border-bottom: 1px solid #2D3336;
-        }
-        """
-        self.setStyleSheet(style)
+        self.load_views()
 
     def setup_header(self):
         header = QFrame()
         header.setObjectName("AppHeader")
         header.setFixedHeight(56)
-        
+
         layout = QHBoxLayout(header)
         layout.setContentsMargins(20, 0, 20, 0)
         layout.setSpacing(16)
-        
+
         # Left side
         logo = QLabel("🔬")
-        logo.setStyleSheet("font-size: 20px; color: #00B884;")
-        
+        logo.setObjectName("appLogo")
+
         title = QLabel("Phantast Lab")
-        title.setStyleSheet("font-size: 15px; font-weight: bold; color: #E8EAED;")
-        
+        title.setObjectName("appTitle")
+
         layout.addWidget(logo)
         layout.addWidget(title)
         layout.addStretch()
-        
+
         # Right side -> Avatar
         avatar = QLabel()
         avatar.setFixedSize(32, 32)
-        avatar.setStyleSheet("background-color: #E8A317; border-radius: 16px;")
+        avatar.setObjectName("appAvatar")
         layout.addWidget(avatar)
-        
+
         self.main_layout.addWidget(header)
 
     def load_views(self):
         # Base paths for data
-        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../product/sections/"))
-        
+        base_dir = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "../../../product/sections/")
+        )
+
         # 1. Image Navigation MVC
         self.img_model = ImageSessionModel()
         self.view_img = ImageNavigationWidget()
         self.img_controller = ImageNavigationController(self.img_model, self.view_img)
-        
+
         self.main_layout.addWidget(self.view_img)
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

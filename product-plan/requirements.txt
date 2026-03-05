@@ -1,2 +1,0 @@
-PyQt6>=6.0.0
-# Add other dependencies your final product might need
