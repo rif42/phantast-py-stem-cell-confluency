@@ -105,16 +105,23 @@ class TestImageNavigationWidget:
         # Check that folder explorer exists
         assert widget.folder_explorer_widget is not None
 
-    def test_update_file_list(self, qtbot):
+    def test_update_file_list(self, qtbot, tmp_path):
         widget = ImageNavigationWidget()
         qtbot.addWidget(widget)
 
         widget.set_mode("FOLDER")
         files = ["image1.png", "image2.jpg", "image3.tif"]
-        widget.update_file_list(files)
 
-        assert widget.file_list.count() == 3
-        assert widget.file_list.item(0).text() == "image1.png"
+        # Create dummy files so size calculation works
+        for f in files:
+            (tmp_path / f).touch()
+
+        widget.update_file_list(files, str(tmp_path))
+
+        # Check that file items were created
+        assert len(widget.file_item_widgets) == 3
+        assert "image1.png" in widget.file_item_widgets
+        assert widget.current_files == files
 
     def test_update_metadata_display(self, qtbot):
         widget = ImageNavigationWidget()

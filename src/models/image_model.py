@@ -17,7 +17,20 @@ class ImageSessionModel:
         self.files: list = []
         self.status: str = "raw"  # raw, processing, processed, error
 
-        self.valid_extensions = (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp")
+        self.valid_extensions = (
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".tif",
+            ".tiff",
+            ".bmp",
+            ".PNG",
+            ".JPG",
+            ".JPEG",
+            ".TIF",
+            ".TIFF",
+            ".BMP",
+        )
 
     def set_single_image(self, filepath: str):
         """Sets the model state to a single valid image."""

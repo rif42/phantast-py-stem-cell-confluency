@@ -1,21 +1,21 @@
 import sys
 from PyQt6.QtWidgets import QApplication
 from src.ui.main_window import MainWindow
-from src.models.image_model import ImageSessionModel
-from src.controllers.image_controller import ImageNavigationController
 
 
 def main():
+    """
+    Main entry point for PhantastLab application.
+
+    The MainWindow now contains its own MainController and UnifiedMainWidget,
+    so no external MVC setup is needed.
+    """
     app = QApplication(sys.argv)
 
-    # Create main window
+    # Create main window (includes controller and unified UI)
     window = MainWindow()
-
-    # Setup MVC for image navigation
-    model = ImageSessionModel()
-    controller = ImageNavigationController(model, window.image_nav_widget)
-
     window.show()
+
     sys.exit(app.exec())
 
 

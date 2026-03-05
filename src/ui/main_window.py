@@ -8,56 +8,56 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QFrame,
-    QStackedWidget,
     QPushButton,
-    QButtonGroup,
     QMessageBox,
     QFileDialog,
     QProgressBar,
     QStatusBar,
+    QSplitter,
+    QStackedWidget,
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QAction, QKeySequence, QFont
 
-from .image_navigation import ImageNavigationWidget
-from .pipeline_view import PipelineConstructionWidget
-from .batch_execution_view import BatchExecutionIntegrationWidget
+from ..controllers.main_controller import MainController
+from .unified_main_widget import UnifiedMainWidget
+from .pipeline_stack_widget import PipelineStackWidget
+from .node_property_editor import NodePropertyEditor
 
 
 class MainWindow(QMainWindow):
-    """Main application window with view navigation, status bar, and keyboard shortcuts."""
+    """
+    Main application window with unified interface.
 
-    # Signals for inter-view communication
-    pipeline_config_changed = pyqtSignal(dict)  # Pipeline config dict
-    request_run_pipeline = pyqtSignal()  # Request to switch to batch execution
+    Features:
+    - Single unified view (no view switching)
+    - Pipeline stack in left panel
+    - Image canvas in center
+    - Properties/node editor in right panel
+    - Status bar with messages and progress
+    - Keyboard shortcuts
+    """
+
     status_message = pyqtSignal(str, int)  # message, timeout_ms
 
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Phantast Lab")
-        self.resize(1300, 850)
+        self.resize(1400, 900)
 
-        # Shared state
-        self._current_pipeline_config = {}
-        self._selected_images = []
+        # Initialize controller
+        self.controller = MainController()
 
         self.apply_stylesheet()
 
-        # Core Container
-        self.main_container = QWidget()
-        self.main_container.setObjectName("mainContainer")
-        self.main_layout = QVBoxLayout(self.main_container)
-        self.main_layout.setContentsMargins(0, 0, 0, 0)
-        self.main_layout.setSpacing(0)
-        self.setCentralWidget(self.main_container)
+        # Setup UI components
+        self._setup_central_widget()
+        self._setup_header()
+        self._setup_status_bar()
+        self._setup_shortcuts()
 
-        self.setup_header()
-        self.setup_content()
-        self.setup_status_bar()
-        self.setup_shortcuts()
-
-        # Navigation setup
-        self.nav_group.idClicked.connect(self.switch_view)
+        # Connect signals
+        self._connect_signals()
 
     def apply_stylesheet(self):
         """Apply dark theme stylesheet."""
@@ -94,24 +94,6 @@ class MainWindow(QMainWindow):
             border-radius: 16px;
         }
         
-        /* NAVIGATION BUTTONS */
-        QPushButton#navBtn {
-            border: none;
-            color: #9AA0A6;
-            font-size: 13px;
-            font-weight: 500;
-            padding: 8px 16px;
-            background-color: transparent;
-        }
-        QPushButton#navBtn:hover {
-            color: #E8EAED;
-        }
-        QPushButton#navBtn:checked {
-            color: #00B884;
-            font-weight: bold;
-            border-bottom: 2px solid #00B884;
-        }
-        
         /* STATUS BAR */
         QStatusBar {
             background-color: #1E2224;
@@ -134,20 +116,95 @@ class MainWindow(QMainWindow):
             background-color: #00B884;
             border-radius: 2px;
         }
+        
+        /* NODE PROPERTY EDITOR */
+        QWidget#nodePropertyEditor {
+            background-color: #121415;
+        }
+        QLabel#panelHeader {
+            color: #9AA0A6;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        QFrame#infoBox {
+            background-color: #1E2224;
+            border: 1px solid #2D3336;
+            border-radius: 6px;
+        }
+        QLabel#nodeNameLabel {
+            color: #E8EAED;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        QLabel#nodeTypeLabel {
+            color: #9AA0A6;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        QLabel#nodeDescLabel {
+            color: #9AA0A6;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+        QLabel#sectionHeader {
+            color: #E8EAED;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        QFrame#paramEditor {
+            background-color: transparent;
+        }
+        QLabel#paramLabel {
+            color: #E8EAED;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        QLabel#paramDesc {
+            color: #9AA0A6;
+            font-size: 11px;
+        }
+        QSpinBox, QDoubleSpinBox {
+            background-color: #121415;
+            border: 1px solid #2D3336;
+            border-radius: 4px;
+            padding: 6px;
+            color: #E8EAED;
+        }
+        QSpinBox:focus, QDoubleSpinBox:focus {
+            border-color: #00B884;
+        }
         """
         self.setStyleSheet(style)
 
-    def setup_header(self):
-        """Create the header bar with logo, title, navigation, and avatar."""
-        header = QFrame()
-        header.setObjectName("AppHeader")
-        header.setFixedHeight(56)
+    def _setup_central_widget(self):
+        """Setup the central widget with unified interface."""
+        # Create unified main widget
+        self.unified_widget = UnifiedMainWidget(self.controller, self)
 
-        layout = QHBoxLayout(header)
+        # Create and set pipeline widget
+        self.pipeline_widget = PipelineStackWidget(self.controller, self.unified_widget)
+        self.unified_widget.set_pipeline_widget(self.pipeline_widget)
+
+        # Create and set node property editor
+        self.property_editor = NodePropertyEditor(self.controller, self.unified_widget)
+        self.unified_widget.set_node_properties_widget(self.property_editor)
+
+        self.setCentralWidget(self.unified_widget)
+
+    def _setup_header(self):
+        """Create the header bar with logo and title."""
+        # Create header as a widget that floats above
+        self.header = QFrame()
+        self.header.setObjectName("AppHeader")
+        self.header.setFixedHeight(56)
+
+        layout = QHBoxLayout(self.header)
         layout.setContentsMargins(20, 0, 20, 0)
         layout.setSpacing(16)
 
-        # Left side: Logo
+        # Logo
         logo = QLabel("🔬")
         logo.setObjectName("logoLabel")
 
@@ -157,118 +214,130 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(logo)
         layout.addWidget(title)
-
-        # Navigation Tabs
-        nav_layout = QHBoxLayout()
-        nav_layout.setContentsMargins(32, 0, 0, 0)
-        self.nav_group = QButtonGroup(self)
-
-        self.btn_img = QPushButton("Image Loading")
-        self.btn_img.setObjectName("navBtn")
-        self.btn_img.setCheckable(True)
-        self.btn_img.setChecked(True)
-        self.nav_group.addButton(self.btn_img, 0)
-
-        self.btn_pipe = QPushButton("Pipeline Construction")
-        self.btn_pipe.setObjectName("navBtn")
-        self.btn_pipe.setCheckable(True)
-        self.nav_group.addButton(self.btn_pipe, 1)
-
-        self.btn_exec = QPushButton("Batch Execution")
-        self.btn_exec.setObjectName("navBtn")
-        self.btn_exec.setCheckable(True)
-        self.nav_group.addButton(self.btn_exec, 2)
-
-        nav_layout.addWidget(self.btn_img)
-        nav_layout.addWidget(self.btn_pipe)
-        nav_layout.addWidget(self.btn_exec)
-
-        layout.addLayout(nav_layout)
         layout.addStretch()
 
-        # Right side: Avatar placeholder
+        # Right side: Open buttons
+        open_img_btn = QPushButton("Open Image")
+        open_img_btn.setObjectName("openBtn")
+        open_img_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #00B884;
+                border: 1px solid #00B884;
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: rgba(0, 184, 132, 0.1);
+            }
+        """)
+        open_img_btn.clicked.connect(self._on_open_image)
+
+        open_folder_btn = QPushButton("Open Folder")
+        open_folder_btn.setObjectName("openBtn")
+        open_folder_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #00B884;
+                border: 1px solid #00B884;
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: rgba(0, 184, 132, 0.1);
+            }
+        """)
+        open_folder_btn.clicked.connect(self._on_open_folder)
+
+        layout.addWidget(open_img_btn)
+        layout.addWidget(open_folder_btn)
+
+        layout.addSpacing(16)
+
+        # Run Pipeline button
+        run_btn = QPushButton("▶ Run")
+        run_btn.setObjectName("runBtn")
+        run_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #00B884;
+                color: #121415;
+                border: none;
+                border-radius: 4px;
+                padding: 6px 16px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #00D494;
+            }
+            QPushButton:disabled {
+                background-color: #2D3336;
+                color: #5A6066;
+            }
+        """)
+        run_btn.clicked.connect(self._on_run_pipeline)
+        run_btn.setEnabled(False)  # Disabled until image is loaded
+        self.run_button = run_btn  # Store reference for enabling/disabling
+        layout.addWidget(run_btn)
+
+        layout.addSpacing(16)
+
+        # Avatar placeholder
         avatar = QLabel()
         avatar.setObjectName("avatarLabel")
         avatar.setFixedSize(32, 32)
         layout.addWidget(avatar)
 
-        self.main_layout.addWidget(header)
+        # Add header to the unified widget's layout
+        # The unified_widget has a main_layout (QHBoxLayout from QSplitter)
+        # We need to wrap it in a vertical layout with the header
 
-    def setup_content(self):
-        """Create the content area with QStackedWidget for view switching."""
-        # Navigation Stack
-        self.stacked_widget = QStackedWidget()
-        self.main_layout.addWidget(self.stacked_widget, 1)
+        # Create a container widget to hold header + unified widget
+        container = QWidget()
+        container_layout = QVBoxLayout(container)
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        container_layout.setSpacing(0)
+        container_layout.addWidget(self.header)
 
-        self.load_views()
+        # Reparent unified_widget to container
+        self.unified_widget.setParent(container)
+        container_layout.addWidget(self.unified_widget, 1)
 
-    def load_views(self):
-        """Load all three main views into the stacked widget."""
-        # 1. Image Navigation View (Index 0)
-        self.image_nav_widget = ImageNavigationWidget()
-        self.stacked_widget.addWidget(self.image_nav_widget)
+        # Set container as central widget
+        self.setCentralWidget(container)
 
-        # 2. Pipeline Construction View (Index 1)
-        self.pipeline_view = PipelineConstructionWidget()
-        # Connect pipeline signals
-        self.pipeline_view.run_pipeline.connect(self.jump_to_execution)
-        self.stacked_widget.addWidget(self.pipeline_view)
-
-        # 3. Batch Execution View (Index 2)
-        self.batch_view = BatchExecutionIntegrationWidget()
-        self.stacked_widget.addWidget(self.batch_view)
-
-        # Connect view signals for state synchronization
-        self._connect_view_signals()
-
-    def _connect_view_signals(self):
-        """Connect signals between views for state synchronization."""
-        # Pipeline construction sends config to batch execution
-        self.pipeline_view.run_pipeline.connect(self._sync_pipeline_to_batch)
-
-        # Image navigation signals for opening files
-        self.image_nav_widget.open_single_image_requested.connect(
-            self._handle_image_opened
+    def _connect_signals(self):
+        """Connect controller signals to UI updates."""
+        # Status messages
+        self.controller.preview_started.connect(
+            lambda: self.status_message.emit("Processing preview...", 2000)
         )
-        self.image_nav_widget.open_folder_requested.connect(self._handle_folder_opened)
-
-    def _sync_pipeline_to_batch(self):
-        """Synchronize pipeline configuration to batch execution view."""
-        # Extract pipeline config from pipeline view
-        self._current_pipeline_config = self._get_pipeline_config()
-        self.status_message.emit(
-            "Pipeline configuration ready for batch execution", 3000
+        self.controller.preview_completed.connect(
+            lambda: self.status_message.emit("Preview updated", 2000)
         )
 
-    def _get_pipeline_config(self) -> dict:
-        """Extract current pipeline configuration."""
-        config = {
-            "nodes": self.pipeline_view.pipeline.get("nodes", []),
-            "active_node_id": self.pipeline_view.active_node_id,
-        }
-        return config
+        # Enable/disable run button based on image state
+        self.controller.image_loaded.connect(lambda _: self.run_button.setEnabled(True))
+        self.controller.image_cleared.connect(lambda: self.run_button.setEnabled(False))
 
-    def _handle_image_opened(self, filepath: str):
-        """Handle image opened signal - update status."""
-        filename = os.path.basename(filepath)
-        self.status_message.emit(f"Opened: {filename}", 3000)
+        # Image operations
+        self.controller.image_loaded.connect(
+            lambda path: self.status_message.emit(
+                f"Loaded: {os.path.basename(path)}", 3000
+            )
+        )
 
-    def _handle_folder_opened(self, folderpath: str):
-        """Handle folder opened signal - update status."""
-        folder_name = os.path.basename(folderpath)
-        self.status_message.emit(f"Opened folder: {folder_name}", 3000)
+        # Node operations
+        self.controller.node_added.connect(
+            lambda node_id: self.status_message.emit("Node added", 2000)
+        )
+        self.controller.node_removed.connect(
+            lambda node_id: self.status_message.emit("Node removed", 2000)
+        )
 
-    def switch_view(self, index):
-        """Switch to the specified view index."""
-        self.stacked_widget.setCurrentIndex(index)
-
-    def jump_to_execution(self):
-        """Switch to batch execution view (called from pipeline view)."""
-        self.btn_exec.setChecked(True)
-        self.switch_view(2)
-        self.status_message.emit("Running batch execution...", 3000)
-
-    def setup_status_bar(self):
+    def _setup_status_bar(self):
         """Setup the status bar with progress and info widgets."""
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
@@ -280,7 +349,7 @@ class MainWindow(QMainWindow):
         self.status_bar.addPermanentWidget(self.progress_bar)
 
         # Ready status
-        self.status_bar.showMessage("Ready")
+        self.status_bar.showMessage("Ready - Open an image to start")
 
         # Connect status message signal
         self.status_message.connect(self._show_status_message)
@@ -299,12 +368,10 @@ class MainWindow(QMainWindow):
         """Hide the progress bar."""
         self.progress_bar.setVisible(False)
 
-    def setup_shortcuts(self):
+    def _setup_shortcuts(self):
         """Setup keyboard shortcuts for common actions."""
         # File menu actions
         self._setup_file_shortcuts()
-        # View navigation shortcuts
-        self._setup_navigation_shortcuts()
         # Help shortcut
         self._setup_help_shortcut()
 
@@ -313,13 +380,13 @@ class MainWindow(QMainWindow):
         # Ctrl+O: Open Image
         open_action = QAction("Open Image", self)
         open_action.setShortcut(QKeySequence("Ctrl+O"))
-        open_action.triggered.connect(self._shortcut_open_image)
+        open_action.triggered.connect(self._on_open_image)
         self.addAction(open_action)
 
         # Ctrl+Shift+O: Open Folder
         open_folder_action = QAction("Open Folder", self)
         open_folder_action.setShortcut(QKeySequence("Ctrl+Shift+O"))
-        open_folder_action.triggered.connect(self._shortcut_open_folder)
+        open_folder_action.triggered.connect(self._on_open_folder)
         self.addAction(open_folder_action)
 
         # Ctrl+S: Save
@@ -334,58 +401,36 @@ class MainWindow(QMainWindow):
         quit_action.triggered.connect(self.close)
         self.addAction(quit_action)
 
-    def _setup_navigation_shortcuts(self):
-        """Setup view navigation shortcuts."""
-        # F1: Image Loading View
-        view1_action = QAction("Image Loading", self)
-        view1_action.setShortcut(QKeySequence("F1"))
-        view1_action.triggered.connect(lambda: self._switch_to_view(0))
-        self.addAction(view1_action)
-
-        # F2: Pipeline Construction View
-        view2_action = QAction("Pipeline Construction", self)
-        view2_action.setShortcut(QKeySequence("F2"))
-        view2_action.triggered.connect(lambda: self._switch_to_view(1))
-        self.addAction(view2_action)
-
-        # F3: Batch Execution View
-        view3_action = QAction("Batch Execution", self)
-        view3_action.setShortcut(QKeySequence("F3"))
-        view3_action.triggered.connect(lambda: self._switch_to_view(2))
-        self.addAction(view3_action)
-
     def _setup_help_shortcut(self):
         """Setup help shortcut."""
-        # F12 or Ctrl+?: Show shortcuts help
         help_action = QAction("Help", self)
         help_action.setShortcut(QKeySequence("F12"))
         help_action.triggered.connect(self._show_shortcuts_help)
         self.addAction(help_action)
 
-    def _switch_to_view(self, index: int):
-        """Switch to view by index and update nav button state."""
-        button_map = {0: self.btn_img, 1: self.btn_pipe, 2: self.btn_exec}
-        if index in button_map:
-            button_map[index].setChecked(True)
-            self.switch_view(index)
+    def _on_open_image(self):
+        """Handle open image action."""
+        filepath, _ = QFileDialog.getOpenFileName(
+            self, "Open Image", "", "Images (*.tiff *.tif *.png *.jpg *.jpeg *.bmp)"
+        )
+        if filepath:
+            self.controller.load_image(filepath)
 
-    def _shortcut_open_image(self):
-        """Handle Ctrl+O shortcut - open image dialog."""
-        # Only works in Image Navigation view
-        if self.stacked_widget.currentIndex() == 0:
-            self.image_nav_widget.action_open_image()
-        else:
-            # Switch to image view first
-            self._switch_to_view(0)
-            QTimer.singleShot(100, self.image_nav_widget.action_open_image)
+    def _on_open_folder(self):
+        """Handle open folder action."""
+        folderpath = QFileDialog.getExistingDirectory(self, "Open Folder")
+        if folderpath:
+            self.controller.load_folder(folderpath)
 
-    def _shortcut_open_folder(self):
-        """Handle Ctrl+Shift+O shortcut - open folder dialog."""
-        if self.stacked_widget.currentIndex() == 0:
-            self.image_nav_widget.action_open_folder()
-        else:
-            self._switch_to_view(0)
-            QTimer.singleShot(100, self.image_nav_widget.action_open_folder)
+    def _on_run_pipeline(self):
+        """Handle run pipeline action."""
+        if not self.controller.has_image:
+            self.status_message.emit("No image loaded", 3000)
+            return
+
+        # Trigger immediate preview execution
+        self.controller.request_immediate_preview()
+        self.status_message.emit("Running pipeline...", 2000)
 
     def _shortcut_save(self):
         """Handle Ctrl+S shortcut - save current state."""
@@ -401,12 +446,6 @@ class MainWindow(QMainWindow):
             <li><b>Ctrl+Shift+O</b> - Open Folder</li>
             <li><b>Ctrl+S</b> - Save</li>
             <li><b>Ctrl+Q</b> - Quit</li>
-        </ul>
-        <h3>Navigation</h3>
-        <ul>
-            <li><b>F1</b> - Image Loading View</li>
-            <li><b>F2</b> - Pipeline Construction View</li>
-            <li><b>F3</b> - Batch Execution View</li>
         </ul>
         <h3>Help</h3>
         <ul>
