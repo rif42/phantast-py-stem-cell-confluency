@@ -22,8 +22,8 @@ from PyQt6.QtGui import QIcon, QPainter, QColor, QPen, QDrag
 class ToggleSwitch(QPushButton):
     """A custom toggle switch styled for the node."""
 
-    def __init__(self, checked=True):
-        super().__init__()
+    def __init__(self, checked=True, parent=None):
+        super().__init__(parent)
         self.setCheckable(True)
         self.setChecked(checked)
         self.setFixedSize(36, 20)
@@ -165,7 +165,7 @@ class PipelineNodeWidget(QFrame):
         badge.setProperty("nodeType", ntype)
         badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        switch = ToggleSwitch(self.node_data.get("enabled", True))
+        switch = ToggleSwitch(self.node_data.get("enabled", True), parent=self)
         switch.toggled.connect(lambda checked: self.toggled.emit(self.node_id, checked))
 
         actions_layout.addWidget(badge, alignment=Qt.AlignmentFlag.AlignRight)
