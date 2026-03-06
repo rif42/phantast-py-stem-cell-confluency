@@ -12,6 +12,8 @@ from PyQt6.QtWidgets import (
     QScrollArea,
     QMenu,
     QSplitter,
+    QDoubleSpinBox,
+    QSpinBox,
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QMimeData
 from PyQt6.QtGui import QIcon, QPainter, QColor, QPen, QDrag
@@ -217,6 +219,7 @@ class PipelineConstructionWidget(QWidget):
     run_pipeline = pyqtSignal()
     node_selected = pyqtSignal(str)
     node_reordered = pyqtSignal(str, int)  # node_id, new_index
+    node_params_changed = pyqtSignal(str, str, object)  # node_id, param_name, value
 
     def __init__(self, data_path: str = None):
         super().__init__()
@@ -553,33 +556,28 @@ class PipelineConstructionWidget(QWidget):
             title = QLabel(active_node.get("name", "Node Properties"))
             title.setObjectName("sectionHeader")
             title_layout.addWidget(title)
-
-            help_text = active_node.get("helpText")
-            if help_text:
-                help_btn = QPushButton("?")
-                help_btn.setObjectName("helpBtn")
-                help_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                help_btn.setFixedSize(14, 14)
-                help_btn.clicked.connect(
-                    lambda _, t=help_text, b=help_btn: self.show_help_tooltip(t, b)
-                )
-                title_layout.addWidget(
-                    help_btn,
-                    alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft,
-                )
-
             title_layout.addStretch()
             self.right_panel_layout.addWidget(title_container)
 
             self.right_panel_layout.addSpacing(24)
 
-            # Simulated properties based on node selection
-            if active_node.get("name") == "CLAHE":
-                self.add_spinbox_row(
-                    "Clip Limit", "2.0", "Threshold for contrast limiting."
-                )
-                self.add_spinbox_row("Grid Size", "8", "Divides image into tiles.")
+            # Dynamic parameter generation from step metadata
+            node_type = active_node.get("type", "")
+            node_params = active_node.get("parameters", {})
+
+            # Find step definition in available_nodes
+            step_def = next(
+                (n for n in self.available_nodes if n.get("type") == node_type), None
+            )
+
+            if step_def and step_def.get("parameters"):
+                # Generate dynamic parameter UI
+                for param in step_def["parameters"]:
+                    self._add_parameter_widget(
+                        param, node_params, active_node.get("id")
+                    )
             else:
+                # No parameters - show description only
                 desc = QLabel(active_node.get("description", ""))
                 desc.setStyleSheet("color: #9AA0A6;")
                 desc.setWordWrap(True)
@@ -590,6 +588,102 @@ class PipelineConstructionWidget(QWidget):
             self.right_panel_layout.addWidget(empty)
 
         self.right_panel_layout.addStretch()
+
+    def _add_parameter_widget(self, param_def, node_params, node_id):
+        """Add a parameter widget for a single parameter.
+
+        Args:
+            param_def: Parameter definition dict with name, type, default, min, max, step
+            node_params: Current parameter values dict for the node
+            node_id: ID of the node being edited
+        """
+        param_name = param_def.get("name", "")
+        param_type = param_def.get("type", "float")
+        param_default = param_def.get("default", 0)
+        param_min = param_def.get("min")
+        param_max = param_def.get("max")
+        param_step = param_def.get("step", 1)
+        param_desc = param_def.get("description", "")
+
+        # Get current value or use default
+        current_value = node_params.get(param_name, param_default)
+
+        # Create container
+        container = QFrame()
+        container.setStyleSheet("margin-bottom: 16px;")
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+
+        # Parameter name label
+        name_label = QLabel(param_name.replace("_", " ").title())
+        name_label.setStyleSheet("color: #E8EAED; font-size: 13px; font-weight: 500;")
+        layout.addWidget(name_label)
+
+        # Create appropriate widget based on type
+        if param_type == "float":
+            spinbox = QDoubleSpinBox()
+            spinbox.setDecimals(1)
+            if param_step:
+                spinbox.setSingleStep(float(param_step))
+            if param_min is not None:
+                spinbox.setMinimum(float(param_min))
+            if param_max is not None:
+                spinbox.setMaximum(float(param_max))
+            spinbox.setValue(float(current_value))
+            spinbox.valueChanged.connect(
+                lambda val, n=node_id, p=param_name: self._on_parameter_changed(
+                    n, p, val
+                )
+            )
+            layout.addWidget(spinbox)
+        elif param_type == "int":
+            spinbox = QSpinBox()
+            if param_step:
+                spinbox.setSingleStep(int(param_step))
+            if param_min is not None:
+                spinbox.setMinimum(int(param_min))
+            if param_max is not None:
+                spinbox.setMaximum(int(param_max))
+            spinbox.setValue(int(current_value))
+            spinbox.valueChanged.connect(
+                lambda val, n=node_id, p=param_name: self._on_parameter_changed(
+                    n, p, val
+                )
+            )
+            layout.addWidget(spinbox)
+        else:
+            # Fallback for other types
+            label = QLabel(str(current_value))
+            label.setStyleSheet("color: #FFFFFF;")
+            layout.addWidget(label)
+
+        # Description text
+        if param_desc:
+            desc_label = QLabel(param_desc)
+            desc_label.setStyleSheet("color: #9AA0A6; font-size: 11px;")
+            desc_label.setWordWrap(True)
+            layout.addWidget(desc_label)
+
+        self.right_panel_layout.addWidget(container)
+
+    def _on_parameter_changed(self, node_id, param_name, value):
+        """Handle parameter value change.
+
+        Args:
+            node_id: ID of the node
+            param_name: Name of the parameter
+            value: New value
+        """
+        # Find the node and update its parameter
+        for node in self.pipeline.get("nodes", []):
+            if node.get("id") == node_id:
+                if "parameters" not in node:
+                    node["parameters"] = {}
+                node["parameters"][param_name] = value
+                break
+        # Emit signal to notify controller
+        self.node_params_changed.emit(node_id, param_name, value)
 
     def add_spinbox_row(self, label_txt, val_txt, subtext_txt=""):
         container = QFrame()
