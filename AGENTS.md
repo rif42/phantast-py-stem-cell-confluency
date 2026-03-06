@@ -132,6 +132,118 @@ def get_resource_path(relative_path):
 
 ---
 
+## PyQt6 CRITICAL RULES (READ BEFORE ANY UI CHANGE)
+
+### The #1 Rule: ALWAYS SET PARENT
+
+**WINDOW SPAWNING BUG:** If you create a widget without a parent, it becomes a separate window. This is the most common and frustrating bug.
+
+```python
+# ❌ WRONG - Spawns separate window
+node = PipelineNodeWidget(node_data)
+
+# ✅ CORRECT - Stays embedded in parent
+node = PipelineNodeWidget(node_data, parent=self.nodes_container)
+```
+
+### Parent Assignment Checklist
+
+**BEFORE creating ANY QWidget subclass, ask:**
+1. Who is my parent widget?
+2. Am I passing `parent=xxx` to `__init__`?
+3. Am I calling `super().__init__(parent=parent)` in the child's `__init__`?
+
+**Every widget constructor MUST have `parent=None` parameter:**
+```python
+class MyWidget(QWidget):
+    def __init__(self, some_data, parent=None):  # parent parameter required
+        super().__init__(parent=parent)  # Pass to super
+        self.some_data = some_data
+        # ... rest of init
+```
+
+**When creating child widgets inside a parent:**
+```python
+class PipelineNodeWidget(QWidget):
+    def __init__(self, node_data, is_selected=False, parent=None):
+        super().__init__(parent=parent)  # CRITICAL: Pass parent to super
+        
+        # All child widgets MUST have parent=self
+        self.toggle = ToggleSwitch(checked=True, parent=self)  # ✅
+        self.label = QLabel("Text", parent=self)  # ✅
+        
+        # Or add to layout (layout takes ownership)
+        layout = QHBoxLayout(self)
+        layout.addWidget(self.toggle)  # ✅ Layout takes ownership
+```
+
+### Widget Creation Rules
+
+| Widget Type | Parent Required? | How to Set |
+|-------------|------------------|------------|
+| `QWidget` subclass | **YES** | `parent=self` in constructor |
+| `QPushButton` | **YES** | `QPushButton("Text", parent=self)` |
+| `QLabel` | **YES** | `QLabel("Text", parent=self)` |
+| `QFrame` | **YES** | `QFrame(parent=self)` |
+| Layout containers | **YES** | `QVBoxLayout(self)` - parent is the widget |
+
+### Common Window-Spawning Mistakes
+
+```python
+# ❌ WRONG: Creating widget without parent
+widget = MyCustomWidget(data)
+layout.addWidget(widget)  # Too late! Window already spawned
+
+# ✅ CORRECT: Pass parent at creation
+widget = MyCustomWidget(data, parent=self)
+layout.addWidget(widget)
+
+# ❌ WRONG: Custom widget init without parent
+class MyWidget(QWidget):
+    def __init__(self, data):  # Missing parent parameter!
+        super().__init__()  # No parent passed!
+        
+# ✅ CORRECT: Custom widget with parent
+class MyWidget(QWidget):
+    def __init__(self, data, parent=None):
+        super().__init__(parent=parent)
+```
+
+### The Layout Parent Trap
+
+When you create a layout with `QVBoxLayout(self)`, the `self` becomes the parent. But child widgets added to the layout STILL need explicit parents if they're not immediately added:
+
+```python
+# ❌ WRONG: Creating widget before adding to layout
+label = QLabel("Text")  # No parent - becomes window!
+layout.addWidget(label)
+
+# ✅ CORRECT: Pass parent when creating
+label = QLabel("Text", parent=self)
+layout.addWidget(label)
+
+# ✅ ALSO CORRECT: Create and add immediately (layout takes ownership)
+layout.addWidget(QLabel("Text", parent=self))
+```
+
+### Debugging Window Spawn Issues
+
+**If a widget spawns as a separate window:**
+
+1. **Check the widget's `__init__`** - Does it accept `parent=None`?
+2. **Check `super().__init__()`** - Is `parent` being passed?
+3. **Check instantiation** - Is `parent=xxx` being passed when creating?
+4. **Check ALL child widgets** - Every child must have parent set
+
+**Quick diagnostic:**
+```python
+# Add this to check if widget has proper parent
+if widget.parent() is None:
+    print(f"WARNING: {widget} has no parent - will spawn as window!")
+```
+
+---
+
 ## Anti-Patterns (Forbidden)
 
 | Pattern | Why Forbidden | Correct Approach |
