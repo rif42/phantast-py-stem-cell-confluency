@@ -94,8 +94,8 @@ class PipelineNodeWidget(QFrame):
     toggled = pyqtSignal(str, bool)
     deleted = pyqtSignal(str)
 
-    def __init__(self, node_data, is_selected=False):
-        super().__init__()
+    def __init__(self, node_data, is_selected=False, parent=None):
+        super().__init__(parent=parent)
         self.node_data = node_data
         self.node_id = node_data.get("id", "")
         self.is_selected = is_selected
@@ -464,7 +464,10 @@ class PipelineConstructionWidget(QWidget):
         nodes = self.pipeline.get("nodes", [])
         for i, node in enumerate(nodes):
             is_selected = node.get("id") == self.active_node_id
-            node_widget = PipelineNodeWidget(node, is_selected)
+            # IMPORTANT: Create node widget with parent to prevent window spawning
+            node_widget = PipelineNodeWidget(
+                node, is_selected, parent=self.nodes_inner_layout.parentWidget()
+            )
             node_widget.clicked.connect(self.handle_node_selected)
             node_widget.toggled.connect(self.toggle_node.emit)
             node_widget.deleted.connect(self.delete_node.emit)
