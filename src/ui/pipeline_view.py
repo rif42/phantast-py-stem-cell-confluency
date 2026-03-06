@@ -321,22 +321,85 @@ class PipelineConstructionWidget(QWidget):
 
     def create_left_panel(self):
         panel = QFrame()
-        panel.setMinimumWidth(250)
+        panel.setMinimumWidth(280)
         panel.setObjectName("leftPanel")
 
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(0)
 
-        # Header
+        # Project Header (matches design)
+        project_header = QFrame()
+        project_header_layout = QVBoxLayout(project_header)
+        project_header_layout.setContentsMargins(0, 0, 0, 0)
+        project_header_layout.setSpacing(2)
+
+        project_title_row = QHBoxLayout()
+        project_title_row.setSpacing(8)
+
+        project_name = QLabel("Untitled Project")
+        project_name.setStyleSheet("color: #E8EAED; font-size: 14px; font-weight: 600;")
+
+        # Yellow dot indicator
+        status_dot = QLabel("●")
+        status_dot.setStyleSheet("color: #E8A317; font-size: 10px;")
+
+        project_title_row.addWidget(project_name)
+        project_title_row.addWidget(status_dot)
+        project_title_row.addStretch()
+        project_header_layout.addLayout(project_title_row)
+
+        project_status = QLabel("Draft - Unsaved")
+        project_status.setStyleSheet("color: #9AA0A6; font-size: 11px;")
+        project_header_layout.addWidget(project_status)
+
+        layout.addWidget(project_header)
+        layout.addSpacing(20)
+
+        # Pipeline Stack Header
         header_layout = QHBoxLayout()
         header = QLabel("PIPELINE STACK")
-        header.setObjectName("panelHeader")
+        header.setStyleSheet("""
+            color: #9AA0A6; 
+            font-size: 10px; 
+            font-weight: 600; 
+            letter-spacing: 1px;
+        """)
 
         add_btn = QPushButton("Add")
-        add_btn.setObjectName("addBtn")
+        add_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #00B884;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 6px 16px;
+                font-size: 12px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background-color: #00D69A;
+            }
+        """)
 
         # Menu for Add Button
         self.add_menu = QMenu(self)
+        self.add_menu.setStyleSheet("""
+            QMenu {
+                background-color: #1E2224;
+                border: 1px solid #2D3336;
+                border-radius: 6px;
+                padding: 4px;
+            }
+            QMenu::item {
+                padding: 8px 16px;
+                color: #E8EAED;
+            }
+            QMenu::item:selected {
+                background-color: #2D3336;
+                border-radius: 4px;
+            }
+        """)
         for node in self.available_nodes:
             action = self.add_menu.addAction(node.get("name"))
             action.setData(node.get("type"))
