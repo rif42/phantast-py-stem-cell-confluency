@@ -1,6 +1,5 @@
 import sys
 import os
-import json
 from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -8,20 +7,12 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QLabel,
-    QPushButton,
     QFrame,
-    QSizePolicy,
-    QSplitter,
 )
-from PyQt6.QtCore import Qt
 
 # Import our custom components
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-from src.ui.image_navigation import ImageNavigationWidget
-from src.models.image_model import ImageSessionModel
-from src.controllers.image_controller import ImageNavigationController
 from src.ui.pipeline_view import PipelineConstructionWidget
-from src.models.pipeline_model import Pipeline
 from src.controllers.pipeline_controller import PipelineController
 
 
@@ -71,19 +62,10 @@ class MainWindow(QMainWindow):
         self.main_layout.addWidget(header)
 
     def load_views(self):
-        # Base paths for data
-        base_dir = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "../../../product/sections/")
-        )
-
-        # 1. Image Navigation MVC
-        self.img_model = ImageSessionModel()
-        self.view_img = ImageNavigationWidget()
-        self.img_controller = ImageNavigationController(self.img_model, self.view_img)
-
-        # 2. Pipeline Construction MVC
+        # Create Pipeline Construction view
         self.view_pipeline = PipelineConstructionWidget()
         self.pipeline_controller = PipelineController()
+
         # Wire up controller to view signals
         self.view_pipeline.add_step.connect(self._on_add_step)
         self.view_pipeline.toggle_node.connect(self._on_toggle_node)
@@ -92,13 +74,8 @@ class MainWindow(QMainWindow):
         self.view_pipeline.node_selected.connect(self._on_node_selected)
         self.pipeline_controller.pipeline_changed.connect(self._on_pipeline_changed)
 
-        # Create splitter to show both views
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.addWidget(self.view_img)
-        splitter.addWidget(self.view_pipeline)
-        splitter.setSizes([400, 900])  # Give more space to pipeline view
-
-        self.main_layout.addWidget(splitter)
+        # Add pipeline view to main layout
+        self.main_layout.addWidget(self.view_pipeline)
 
     def _refresh_pipeline_view(self):
         """Refresh the pipeline view from controller data."""
