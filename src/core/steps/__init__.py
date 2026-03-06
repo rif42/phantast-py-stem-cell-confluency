@@ -158,6 +158,12 @@ def clear_registry():
     STEP_REGISTRY.clear()
 
 
+# Auto-import steps to register them in STEP_REGISTRY
+try:
+    from . import clahe_step, grayscale_step, crop_step
+except ImportError:
+    pass  # Steps may not be available in all environments
+
 # Export symbols
 __all__ = [
     "StepParameter",

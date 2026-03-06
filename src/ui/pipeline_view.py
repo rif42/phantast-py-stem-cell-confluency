@@ -224,16 +224,72 @@ class PipelineConstructionWidget(QWidget):
         self.available_nodes = []
         self.active_node_id = None
 
+        # Load available nodes from step registry
+        self._load_available_nodes()
+
         if data_path and os.path.exists(data_path):
             with open(data_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 self.pipeline = data.get("pipeline", {})
-                self.available_nodes = data.get("availableNodes", [])
+                # Don't override available_nodes from registry
                 nodes = self.pipeline.get("nodes", [])
                 if nodes:
                     self.active_node_id = nodes[0].get("id")
 
         self.init_ui()
+
+    def _load_available_nodes(self):
+        """Load available processing nodes from step registry."""
+        try:
+            from src.core.steps import STEP_REGISTRY
+
+            self.available_nodes = []
+            for step_name, step_meta in STEP_REGISTRY.items():
+                node_info = {
+                    "type": step_name,
+                    "name": step_meta.description,  # Use description as display name
+                    "description": step_meta.description,
+                    "icon": step_meta.icon,
+                    "parameters": [
+                        {
+                            "name": p.name,
+                            "type": p.type,
+                            "default": p.default,
+                            "min": p.min,
+                            "max": p.max,
+                            "step": p.step,
+                            "description": p.description,
+                        }
+                        for p in step_meta.parameters
+                    ],
+                }
+                self.available_nodes.append(node_info)
+        except ImportError:
+            # Fallback if registry not available
+            self.available_nodes = []
+            for step_name, step_meta in STEP_REGISTRY.items():
+                node_info = {
+                    "type": step_name,
+                    "name": step_meta.name,
+                    "description": step_meta.description,
+                    "icon": step_meta.icon,
+                    "parameters": [
+                        {
+                            "name": p.name,
+                            "type": p.type,
+                            "default": p.default,
+                            "min": p.min,
+                            "max": p.max,
+                            "step": p.step,
+                            "description": p.description,
+                        }
+                        for p in step_meta.parameters
+                    ],
+                }
+                self.available_nodes.append(node_info)
+        except Exception:
+            # Fallback if registry not available
+            self.available_nodes = []
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
