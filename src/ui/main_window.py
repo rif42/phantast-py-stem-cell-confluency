@@ -281,6 +281,9 @@ class MainWindow(QMainWindow):
 
         # Right panel signals
         self.right_panel.node_param_changed.connect(self.handle_node_param_changed)
+        self.right_panel.file_selected.connect(
+            self.image_controller.handle_file_selected
+        )
 
     def _update_empty_state(self):
         """Update UI based on whether an image is loaded."""
@@ -455,8 +458,8 @@ class MainWindow(QMainWindow):
         pass
 
     def update_file_list(self, files):
-        """Update file list (for folder mode - not used in unified view)."""
-        pass
+        """Update file list in right panel folder explorer."""
+        self.right_panel.update_file_list(files)
 
     def update_metadata_display(
         self, filename, subtitle, dimensions, bitdepth, channels, filesize
@@ -606,6 +609,29 @@ class MainWindow(QMainWindow):
                 border-radius: 8px;
                 min-width: 64px;
                 min-height: 64px;
+            }
+            #fileList {
+                background-color: #1E2224;
+                border: 1px solid #2D3336;
+                border-radius: 4px;
+                outline: none;
+            }
+            #fileList::item {
+                color: #E8EAED;
+                padding: 8px 12px;
+                border: 2px solid transparent;
+                border-radius: 4px;
+            }
+            #fileList::item:selected {
+                background-color: #00B884;
+                border: 2px solid #00d69a;
+                color: #121415;
+            }
+            #fileList::item:hover {
+                background-color: #2D3336;
+            }
+            #fileList::item:selected:hover {
+                background-color: #00B884;
             }
         """)
 

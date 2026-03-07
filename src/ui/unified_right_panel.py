@@ -11,6 +11,8 @@ from PyQt6.QtWidgets import (
     QDoubleSpinBox,
     QSpinBox,
     QSizePolicy,
+    QListWidget,
+    QPushButton,
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 
@@ -20,6 +22,8 @@ class UnifiedRightPanel(QFrame):
 
     panel_changed = pyqtSignal(str)  # 'metadata' or 'properties'
     node_param_changed = pyqtSignal(str, str, object)  # node_id, param_name, value
+    file_selected = pyqtSignal(str)  # file_path
+    refresh_requested = pyqtSignal()  # Request to refresh folder
 
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -28,6 +32,7 @@ class UnifiedRightPanel(QFrame):
 
         self.current_node_id = None
         self.current_node_params = {}
+        self.current_files = []  # Store current file list for refresh
 
         self.init_ui()
 
@@ -73,6 +78,65 @@ class UnifiedRightPanel(QFrame):
             letter-spacing: 0.5px;
         """)
         layout.addWidget(header)
+
+        layout.addSpacing(16)
+
+        # Folder Explorer Section
+        folder_header = QHBoxLayout()
+        folder_header.setContentsMargins(0, 0, 0, 0)
+        folder_header.setSpacing(8)
+
+        folder_label = QLabel("📁 Folder Explorer", parent=page)
+        folder_label.setObjectName("sectionHeader")
+        folder_label.setStyleSheet(
+            "color: #E8EAED; font-size: 14px; font-weight: bold;"
+        )
+        folder_header.addWidget(folder_label)
+
+        folder_header.addStretch()
+
+        self.refresh_btn = QPushButton("↻", parent=page)
+        self.refresh_btn.setObjectName("refreshBtn")
+        self.refresh_btn.setFixedSize(24, 24)
+        self.refresh_btn.setToolTip("Refresh folder")
+        self.refresh_btn.clicked.connect(self._on_refresh_clicked)
+        self.refresh_btn.setStyleSheet("""
+            #refreshBtn {
+                background-color: #2D3336;
+                border: 1px solid #3D4448;
+                border-radius: 4px;
+                color: #9AA0A6;
+                font-size: 12px;
+            }
+            #refreshBtn:hover {
+                background-color: #3D4448;
+                color: #E8EAED;
+            }
+        """)
+        folder_header.addWidget(self.refresh_btn)
+
+        layout.addLayout(folder_header)
+
+        layout.addSpacing(8)
+
+        # File List
+        self.file_list = QListWidget(parent=page)
+        self.file_list.setObjectName("fileList")
+        self.file_list.setUniformItemSizes(True)  # Performance optimization
+        self.file_list.setLayoutMode(QListWidget.LayoutMode.Batched)
+        self.file_list.setBatchSize(100)
+        self.file_list.itemDoubleClicked.connect(self._on_file_double_clicked)
+        layout.addWidget(self.file_list, stretch=1)
+
+        # Empty state label (hidden by default)
+        self.empty_label = QLabel("No images found", parent=page)
+        self.empty_label.setObjectName("emptyLabel")
+        self.empty_label.setStyleSheet(
+            "color: #9AA0A6; font-size: 13px; padding: 20px;"
+        )
+        self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_label.hide()
+        layout.addWidget(self.empty_label)
 
         layout.addSpacing(16)
 
@@ -406,6 +470,44 @@ class UnifiedRightPanel(QFrame):
     def get_current_page(self):
         """Get current page name."""
         return "metadata" if self.stack.currentIndex() == 0 else "properties"
+
+    def update_file_list(self, files: list):
+        """Update the folder explorer file list.
+
+        Args:
+            files: List of file paths to display
+        """
+        self.current_files = files
+        self.file_list.clear()
+
+        if not files:
+            self.file_list.hide()
+            self.empty_label.show()
+            self.refresh_btn.setEnabled(False)
+            return
+
+        self.empty_label.hide()
+        self.file_list.show()
+        self.refresh_btn.setEnabled(True)
+
+        for file_path in files:
+            import os
+
+            filename = os.path.basename(file_path)
+            self.file_list.addItem(filename)
+
+        # Select first item by default
+        if self.file_list.count() > 0:
+            self.file_list.setCurrentRow(0)
+
+    def _on_file_double_clicked(self, item):
+        """Handle double-click on file list item."""
+        filename = item.text()
+        self.file_selected.emit(filename)
+
+    def _on_refresh_clicked(self):
+        """Handle refresh button click."""
+        self.refresh_requested.emit()
 
     def clear(self):
         """Clear all data and reset to metadata page."""
