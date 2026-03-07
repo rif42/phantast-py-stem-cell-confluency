@@ -135,7 +135,7 @@ class MainWindow(QMainWindow):
         # Floating toolbar
         toolbar_container = QWidget(parent=self.canvas_container)
         toolbar_layout = QHBoxLayout(toolbar_container)
-        toolbar_layout.setContentsMargins(0, 16, 0, 0)
+        toolbar_layout.setContentsMargins(0, 0, 0, 0)
 
         toolbar = QFrame(parent=toolbar_container)
         toolbar.setObjectName("floatingToolbar")
@@ -180,47 +180,66 @@ class MainWindow(QMainWindow):
         self.image_canvas.zoom_changed.connect(
             lambda pct: self.lbl_zoom.setText(f"{pct}%")
         )
-        canvas_layout.addWidget(self.image_canvas, stretch=1)
+        canvas_layout.addWidget(self.image_canvas)
 
         # Empty state overlay (shown when no image)
         self.empty_overlay = QWidget(parent=self.canvas_container)
         self.empty_overlay.setObjectName("emptyOverlay")
         overlay_layout = QVBoxLayout(self.empty_overlay)
+        overlay_layout.setContentsMargins(16, 16, 16, 16)
+        overlay_layout.setSpacing(0)
         overlay_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        empty_icon = QLabel("🖼️", parent=self.empty_overlay)
+        # Dashed border container
+        dashed_container = QFrame(parent=self.empty_overlay)
+        dashed_container.setObjectName("emptyStateContainer")
+        dashed_layout = QVBoxLayout(dashed_container)
+        dashed_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        dashed_layout.setContentsMargins(48, 48, 48, 48)
+        dashed_layout.setSpacing(16)
+
+        # Icon container with border
+        icon_container = QFrame(parent=dashed_container)
+        icon_container.setObjectName("iconContainer")
+        icon_layout = QVBoxLayout(icon_container)
+        icon_layout.setContentsMargins(16, 16, 16, 16)
+        icon_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        empty_icon = QLabel("🖼️", parent=icon_container)
         empty_icon.setObjectName("largeIcon")
         empty_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        overlay_layout.addWidget(empty_icon)
+        icon_layout.addWidget(empty_icon)
+        dashed_layout.addWidget(icon_container, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        empty_title = QLabel("Select Input Image", parent=self.empty_overlay)
+        empty_title = QLabel("Select Input Image", parent=dashed_container)
         empty_title.setObjectName("sectionHeaderLarge")
         empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        overlay_layout.addWidget(empty_title)
+        dashed_layout.addWidget(empty_title)
 
-        btn_open_img = QPushButton("Open an Image", parent=self.empty_overlay)
+        btn_open_img = QPushButton("Open an Image", parent=dashed_container)
         btn_open_img.setObjectName("primaryButton")
         btn_open_img.setFixedWidth(240)
         btn_open_img.clicked.connect(self.action_open_image)
-        overlay_layout.addWidget(btn_open_img, alignment=Qt.AlignmentFlag.AlignCenter)
+        dashed_layout.addWidget(btn_open_img, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        btn_open_folder = QPushButton("Open a Folder", parent=self.empty_overlay)
+        btn_open_folder = QPushButton("Open a Folder", parent=dashed_container)
         btn_open_folder.setObjectName("primaryButton")
         btn_open_folder.setFixedWidth(240)
         btn_open_folder.clicked.connect(self.action_open_folder)
-        overlay_layout.addWidget(
-            btn_open_folder, alignment=Qt.AlignmentFlag.AlignCenter
-        )
+        dashed_layout.addWidget(btn_open_folder, alignment=Qt.AlignmentFlag.AlignCenter)
 
         empty_subtitle = QLabel(
             "Supports JPG, PNG, TIFF & RAW formats up to 100MB",
-            parent=self.empty_overlay,
+            parent=dashed_container,
         )
         empty_subtitle.setObjectName("fileDesc")
         empty_subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        overlay_layout.addWidget(empty_subtitle)
+        dashed_layout.addWidget(empty_subtitle)
 
-        canvas_layout.addWidget(self.empty_overlay)
+        overlay_layout.addWidget(
+            dashed_container, stretch=0, alignment=Qt.AlignmentFlag.AlignCenter
+        )
+        canvas_layout.addWidget(self.empty_overlay, stretch=1)
         self.empty_overlay.raise_()  # Keep on top
 
         self.splitter.addWidget(self.canvas_container)
@@ -566,16 +585,27 @@ class MainWindow(QMainWindow):
                 font-size: 12px;
             }
             #largeIcon {
-                font-size: 64px;
-                color: #9AA0A6;
-                margin: 24px 0;
+                font-size: 48px;
             }
             #fileDesc {
                 color: #9AA0A6;
                 font-size: 13px;
+                margin-top: 8px;
             }
             #emptyOverlay {
-                background-color: #0d0f10;
+                background-color: transparent;
+            }
+            #emptyStateContainer {
+                background-color: #15181a;
+                border: 2px dashed #3a3f44;
+                border-radius: 12px;
+            }
+            #iconContainer {
+                background-color: #1a1f22;
+                border: 1px solid #2a2e33;
+                border-radius: 8px;
+                min-width: 64px;
+                min-height: 64px;
             }
         """)
 
