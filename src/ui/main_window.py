@@ -1,6 +1,11 @@
+"""Main Window - Combined Image Navigation and Pipeline Construction."""
+
 import sys
 import os
-import json
+
+# Import our custom components
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+
 from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -10,36 +15,62 @@ from PyQt6.QtWidgets import (
     QLabel,
     QPushButton,
     QFrame,
-    QSizePolicy,
+    QSplitter,
+    QFileDialog,
+    QListWidget,
+    QListWidgetItem,
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor
 
-# Import our custom components
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-from src.ui.image_navigation import ImageNavigationWidget
+# Models
 from src.models.image_model import ImageSessionModel
+from src.models.pipeline_model import Pipeline, PipelineNode
+
+# Views
+from src.ui.pipeline_stack_widget import PipelineStackWidget
+from src.ui.image_canvas import ImageCanvas
+from src.ui.unified_right_panel import UnifiedRightPanel
+
+# Controllers
 from src.controllers.image_controller import ImageNavigationController
+from src.controllers.pipeline_controller import PipelineController
 
 
 class MainWindow(QMainWindow):
+    """Main application window combining image navigation and pipeline features."""
+
+    # Signals for ImageNavigationController compatibility
+    open_single_image_requested = pyqtSignal(str)
+    open_folder_requested = pyqtSignal(str)
+    file_selected = pyqtSignal(str)
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Phantast Lab")
-        self.resize(1300, 850)
+        self.resize(1400, 900)
+
+        # State
+        self.current_image_path = None
+        self.available_nodes = []
 
         # Core Container
-        self.main_container = QWidget()
+        self.main_container = QWidget(parent=self)
         self.main_layout = QVBoxLayout(self.main_container)
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.main_layout.setSpacing(0)
         self.setCentralWidget(self.main_container)
 
         self.setup_header()
-
-        self.load_views()
+        self.setup_models()
+        self.setup_ui_components()
+        self.setup_controllers()
+        self.wire_signals()
+        self.apply_styles()
 
     def setup_header(self):
-        header = QFrame()
+        """Create the top header bar."""
+        header = QFrame(parent=self.main_container)
         header.setObjectName("AppHeader")
         header.setFixedHeight(56)
 
@@ -48,10 +79,10 @@ class MainWindow(QMainWindow):
         layout.setSpacing(16)
 
         # Left side
-        logo = QLabel("🔬")
+        logo = QLabel("🔬", parent=header)
         logo.setObjectName("appLogo")
 
-        title = QLabel("Phantast Lab")
+        title = QLabel("Phantast Lab", parent=header)
         title.setObjectName("appTitle")
 
         layout.addWidget(logo)
@@ -59,25 +90,494 @@ class MainWindow(QMainWindow):
         layout.addStretch()
 
         # Right side -> Avatar
-        avatar = QLabel()
+        avatar = QLabel(parent=header)
         avatar.setFixedSize(32, 32)
         avatar.setObjectName("appAvatar")
         layout.addWidget(avatar)
 
         self.main_layout.addWidget(header)
 
-    def load_views(self):
-        # Base paths for data
-        base_dir = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "../../../product/sections/")
+    def setup_models(self):
+        """Initialize data models."""
+        self.image_model = ImageSessionModel()
+        self.pipeline_model = Pipeline()
+
+    def setup_ui_components(self):
+        """Create and arrange the main UI components."""
+        # Create a container for the 3-panel layout
+        self.content_container = QWidget(parent=self.main_container)
+        content_layout = QHBoxLayout(self.content_container)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(0)
+
+        # Use QSplitter for resizable panels
+        self.splitter = QSplitter(
+            Qt.Orientation.Horizontal, parent=self.content_container
+        )
+        self.splitter.setHandleWidth(1)
+        self.splitter.setStyleSheet("QSplitter::handle { background-color: #2D3336; }")
+
+        # === LEFT PANEL: Pipeline Stack ===
+        self.pipeline_stack = PipelineStackWidget(parent=self.splitter)
+        if self.pipeline_stack.add_button:
+            self.pipeline_stack.add_button.setEnabled(
+                False
+            )  # Disabled until image loaded
+            self.pipeline_stack.add_button.setToolTip("Load an image first")
+        self.splitter.addWidget(self.pipeline_stack)
+
+        # === CENTER PANEL: Image Canvas with Toolbar ===
+        self.canvas_container = QWidget(parent=self.splitter)
+        canvas_layout = QVBoxLayout(self.canvas_container)
+        canvas_layout.setContentsMargins(0, 0, 0, 0)
+        canvas_layout.setSpacing(0)
+
+        # Floating toolbar
+        toolbar_container = QWidget(parent=self.canvas_container)
+        toolbar_layout = QHBoxLayout(toolbar_container)
+        toolbar_layout.setContentsMargins(0, 16, 0, 0)
+
+        toolbar = QFrame(parent=toolbar_container)
+        toolbar.setObjectName("floatingToolbar")
+        tb_layout = QHBoxLayout(toolbar)
+        tb_layout.setContentsMargins(12, 8, 12, 8)
+        tb_layout.setSpacing(16)
+
+        # Toolbar buttons
+        self.btn_pan = QPushButton("🤚", parent=toolbar)
+        self.btn_pan.setObjectName("toolBtn")
+        self.btn_pan.setCheckable(True)
+        self.btn_pan.clicked.connect(self.toggle_pan_mode)
+
+        btn_measure = QPushButton("📏", parent=toolbar)
+        btn_measure.setObjectName("toolBtn")
+
+        btn_zoom_out = QPushButton("−", parent=toolbar)
+        btn_zoom_out.setObjectName("toolBtn")
+        btn_zoom_out.clicked.connect(self.action_zoom_out)
+
+        self.lbl_zoom = QLabel("100%", parent=toolbar)
+        self.lbl_zoom.setObjectName("toolLabel")
+        self.lbl_zoom.setFixedWidth(45)
+        self.lbl_zoom.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        btn_zoom_in = QPushButton("+", parent=toolbar)
+        btn_zoom_in.setObjectName("toolBtn")
+        btn_zoom_in.clicked.connect(self.action_zoom_in)
+
+        for w in [self.btn_pan, btn_measure, btn_zoom_out, self.lbl_zoom, btn_zoom_in]:
+            tb_layout.addWidget(w)
+
+        toolbar_layout.addStretch()
+        toolbar_layout.addWidget(toolbar)
+        toolbar_layout.addStretch()
+
+        canvas_layout.addWidget(toolbar_container)
+
+        # Image canvas
+        self.image_canvas = ImageCanvas(parent=self.canvas_container)
+        self.image_canvas.setObjectName("canvasImage")
+        self.image_canvas.zoom_changed.connect(
+            lambda pct: self.lbl_zoom.setText(f"{pct}%")
+        )
+        canvas_layout.addWidget(self.image_canvas, stretch=1)
+
+        # Empty state overlay (shown when no image)
+        self.empty_overlay = QWidget(parent=self.canvas_container)
+        self.empty_overlay.setObjectName("emptyOverlay")
+        overlay_layout = QVBoxLayout(self.empty_overlay)
+        overlay_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        empty_icon = QLabel("🖼️", parent=self.empty_overlay)
+        empty_icon.setObjectName("largeIcon")
+        empty_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        overlay_layout.addWidget(empty_icon)
+
+        empty_title = QLabel("Select Input Image", parent=self.empty_overlay)
+        empty_title.setObjectName("sectionHeaderLarge")
+        empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        overlay_layout.addWidget(empty_title)
+
+        btn_open_img = QPushButton("Open an Image", parent=self.empty_overlay)
+        btn_open_img.setObjectName("primaryButton")
+        btn_open_img.setFixedWidth(240)
+        btn_open_img.clicked.connect(self.action_open_image)
+        overlay_layout.addWidget(btn_open_img, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        btn_open_folder = QPushButton("Open a Folder", parent=self.empty_overlay)
+        btn_open_folder.setObjectName("primaryButton")
+        btn_open_folder.setFixedWidth(240)
+        btn_open_folder.clicked.connect(self.action_open_folder)
+        overlay_layout.addWidget(
+            btn_open_folder, alignment=Qt.AlignmentFlag.AlignCenter
         )
 
-        # 1. Image Navigation MVC
-        self.img_model = ImageSessionModel()
-        self.view_img = ImageNavigationWidget()
-        self.img_controller = ImageNavigationController(self.img_model, self.view_img)
+        empty_subtitle = QLabel(
+            "Supports JPG, PNG, TIFF & RAW formats up to 100MB",
+            parent=self.empty_overlay,
+        )
+        empty_subtitle.setObjectName("fileDesc")
+        empty_subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        overlay_layout.addWidget(empty_subtitle)
 
-        self.main_layout.addWidget(self.view_img)
+        canvas_layout.addWidget(self.empty_overlay)
+        self.empty_overlay.raise_()  # Keep on top
+
+        self.splitter.addWidget(self.canvas_container)
+
+        # === RIGHT PANEL: Unified Right Panel ===
+        self.right_panel = UnifiedRightPanel(parent=self.splitter)
+        self.splitter.addWidget(self.right_panel)
+
+        # Set stretch factors (center gets more space)
+        self.splitter.setStretchFactor(0, 0)
+        self.splitter.setStretchFactor(1, 1)
+        self.splitter.setStretchFactor(2, 0)
+
+        content_layout.addWidget(self.splitter)
+        self.main_layout.addWidget(self.content_container)
+
+        # Initialize with empty state
+        self._update_empty_state()
+
+    def setup_controllers(self):
+        """Initialize controllers."""
+        # Image controller - manages image loading
+        self.image_controller = ImageNavigationController(self.image_model, self)
+
+        # Pipeline controller - manages pipeline operations
+        self.pipeline_controller = PipelineController()
+
+    def wire_signals(self):
+        """Wire up all signal/slot connections."""
+        # Image model -> UI updates
+        # (Handled by image controller calling our methods)
+
+        # Pipeline stack signals -> Controller
+        self.pipeline_stack.add_step_requested.connect(self.handle_add_step)
+        self.pipeline_stack.toggle_node.connect(self.handle_toggle_node)
+        self.pipeline_stack.delete_node.connect(self.handle_delete_node)
+        self.pipeline_stack.node_reordered.connect(self.handle_node_reordered)
+        self.pipeline_stack.node_selected.connect(self.handle_node_selected)
+
+        # Right panel signals
+        self.right_panel.node_param_changed.connect(self.handle_node_param_changed)
+
+    def _update_empty_state(self):
+        """Update UI based on whether an image is loaded."""
+        has_image = self.current_image_path is not None
+
+        # Toggle overlay visibility
+        self.empty_overlay.setVisible(not has_image)
+
+        # Enable/disable add button
+        if self.pipeline_stack.add_button:
+            self.pipeline_stack.add_button.setEnabled(has_image)
+            if has_image:
+                self.pipeline_stack.add_button.setToolTip("")
+            else:
+                self.pipeline_stack.add_button.setToolTip("Load an image first")
+
+        # Update right panel
+        if not has_image:
+            self.right_panel.clear()
+
+    # === Image Navigation Handlers ===
+
+    def action_open_image(self):
+        """Open single image dialog."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Select Input Image", "", "Images (*.png *.jpg *.jpeg *.tif *.tiff)"
+        )
+        if file_path:
+            self.image_controller.handle_open_single_image(file_path)
+
+    def action_open_folder(self):
+        """Open folder dialog."""
+        folder_path = QFileDialog.getExistingDirectory(self, "Select Input Folder")
+        if folder_path:
+            self.image_controller.handle_open_folder(folder_path)
+
+    def toggle_pan_mode(self, checked):
+        """Toggle canvas pan mode."""
+        if checked:
+            self.btn_pan.setObjectName("toolBtnActive")
+        else:
+            self.btn_pan.setObjectName("toolBtn")
+
+        # Force stylesheet update
+        self.btn_pan.setStyleSheet(self.btn_pan.styleSheet())
+
+        self.image_canvas.set_pan_mode(checked)
+
+    def action_zoom_in(self):
+        """Zoom in on canvas."""
+        self.image_canvas.zoom_in()
+
+    def action_zoom_out(self):
+        """Zoom out on canvas."""
+        self.image_canvas.zoom_out()
+
+    # === Pipeline Handlers ===
+
+    def handle_add_step(self, step_type):
+        """Add a new pipeline step."""
+        # Create a new node
+        import uuid
+
+        node = PipelineNode(
+            id=str(uuid.uuid4()),
+            type=step_type,
+            name=step_type.replace("_", " ").title(),
+            description=step_type.replace("_", " ").title(),
+            icon="⚙️",
+            status="idle",
+            enabled=True,
+            parameters={},
+        )
+        self.pipeline_controller.add_node(node)
+
+        # Update the pipeline stack view
+        self._refresh_pipeline_view()
+
+    def handle_toggle_node(self, node_id, enabled):
+        """Toggle node enabled state."""
+        self.pipeline_controller.toggle_node(node_id, enabled)
+
+    def handle_delete_node(self, node_id):
+        """Delete a node."""
+        self.pipeline_controller.remove_node(node_id)
+        self._refresh_pipeline_view()
+
+        # If we deleted the selected node, show metadata
+        self.right_panel.show_metadata(self._get_current_metadata())
+
+    def handle_node_reordered(self, new_order):
+        """Handle node reordering."""
+        # Reorder pipeline nodes based on new order
+        id_to_node = {n.id: n for n in self.pipeline_controller.pipeline.nodes}
+        reordered = [id_to_node[nid] for nid in new_order if nid in id_to_node]
+        self.pipeline_controller.pipeline.nodes = reordered
+        self.pipeline_controller.pipeline_changed.emit()
+
+    def handle_node_selected(self, node_data):
+        """Handle node selection - show properties."""
+        self.right_panel.show_properties(node_data, self.available_nodes)
+
+    def handle_node_param_changed(self, node_id, param_name, value):
+        """Handle parameter change from properties panel."""
+        self.pipeline_controller.update_node_params(node_id, {param_name: value})
+
+    def _refresh_pipeline_view(self):
+        """Refresh the pipeline stack view from controller."""
+        pipeline_data = {
+            "nodes": [
+                {
+                    "id": n.id,
+                    "type": n.type,
+                    "name": n.name,
+                    "description": n.description,
+                    "enabled": n.enabled,
+                    "icon": n.icon or "⚙️",
+                    "parameters": n.parameters,
+                }
+                for n in self.pipeline_controller.pipeline.nodes
+            ]
+        }
+        self.pipeline_stack.set_pipeline(pipeline_data)
+
+    def _get_current_metadata(self):
+        """Get metadata for currently loaded image."""
+        if not self.current_image_path:
+            return None
+
+        return {
+            "filename": os.path.basename(self.current_image_path),
+            "subtitle": "Source Input",
+            "dimensions": self._get_image_dimensions(),
+            "bitdepth": "8-bit",
+            "channels": "RGB (3)",
+            "filesize": self._get_file_size_formatted(),
+        }
+
+    def _get_image_dimensions(self):
+        """Get dimensions of current image."""
+        if not self.current_image_path:
+            return "-"
+
+        from PyQt6.QtGui import QImageReader
+
+        reader = QImageReader(self.current_image_path)
+        size = reader.size()
+        if size.isValid():
+            return f"{size.width()} x {size.height()}"
+        return "Unknown"
+
+    def _get_file_size_formatted(self):
+        """Get formatted file size."""
+        if not self.current_image_path:
+            return "-"
+
+        try:
+            size_bytes = os.path.getsize(self.current_image_path)
+            for unit in ["B", "KB", "MB", "GB"]:
+                if size_bytes < 1024.0:
+                    return f"{size_bytes:.1f} {unit}"
+                size_bytes /= 1024.0
+            return f"{size_bytes:.1f} TB"
+        except:
+            return "-"
+
+    # === Public Methods for Controller ===
+
+    def set_mode(self, mode):
+        """Set the application mode (called by ImageNavigationController)."""
+        # Update internal state if needed
+        pass
+
+    def update_file_list(self, files):
+        """Update file list (for folder mode - not used in unified view)."""
+        pass
+
+    def update_metadata_display(
+        self, filename, subtitle, dimensions, bitdepth, channels, filesize
+    ):
+        """Update metadata display (called by ImageNavigationController)."""
+        metadata = {
+            "filename": filename,
+            "subtitle": subtitle,
+            "dimensions": dimensions,
+            "bitdepth": bitdepth,
+            "channels": channels,
+            "filesize": filesize,
+        }
+        self.right_panel.show_metadata(metadata)
+
+    def load_image_to_canvas(self, filepath):
+        """Load image to canvas (called by ImageNavigationController)."""
+        self.current_image_path = filepath
+        self.image_canvas.load_image(filepath)
+        self._update_empty_state()
+
+        # Update metadata
+        metadata = self._get_current_metadata()
+        if metadata:
+            self.right_panel.show_metadata(metadata)
+
+    def apply_styles(self):
+        """Apply application-wide styles."""
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #121415;
+            }
+            QWidget {
+                background-color: #121415;
+                color: #E8EAED;
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            }
+            #AppHeader {
+                background-color: #121415;
+                border-bottom: 1px solid #2D3336;
+            }
+            #appTitle {
+                color: #E8EAED;
+                font-size: 16px;
+                font-weight: 600;
+            }
+            #appLogo {
+                font-size: 20px;
+            }
+            #appAvatar {
+                background-color: #2D3336;
+                border-radius: 16px;
+            }
+            #leftPanel {
+                background-color: #121415;
+                border-right: 1px solid #2D3336;
+                min-width: 280px;
+                max-width: 350px;
+            }
+            #rightPanel {
+                background-color: #121415;
+                border-left: 1px solid #2D3336;
+                min-width: 280px;
+                max-width: 350px;
+            }
+            #canvasArea {
+                background-color: #0d0f10;
+            }
+            #panelHeader {
+                color: #9AA0A6;
+                font-size: 11px;
+                font-weight: bold;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            #sectionHeader {
+                color: #E8EAED;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            #sectionHeaderLarge {
+                color: #E8EAED;
+                font-size: 20px;
+                font-weight: 600;
+                margin: 16px 0;
+            }
+            #primaryButton {
+                background-color: #00B884;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 12px 24px;
+                font-size: 14px;
+                font-weight: 600;
+                margin: 8px 0;
+            }
+            #primaryButton:hover {
+                background-color: #00D69A;
+            }
+            #floatingToolbar {
+                background-color: #1E2224;
+                border: 1px solid #2D3336;
+                border-radius: 8px;
+            }
+            #toolBtn {
+                background-color: transparent;
+                color: #E8EAED;
+                border: none;
+                border-radius: 4px;
+                padding: 6px 10px;
+                font-size: 14px;
+            }
+            #toolBtn:hover {
+                background-color: #2D3336;
+            }
+            #toolBtnActive {
+                background-color: #00B884;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 6px 10px;
+                font-size: 14px;
+            }
+            #toolLabel {
+                color: #9AA0A6;
+                font-size: 12px;
+            }
+            #largeIcon {
+                font-size: 64px;
+                color: #9AA0A6;
+                margin: 24px 0;
+            }
+            #fileDesc {
+                color: #9AA0A6;
+                font-size: 13px;
+            }
+            #emptyOverlay {
+                background-color: #0d0f10;
+            }
+        """)
 
 
 if __name__ == "__main__":

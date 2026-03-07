@@ -1,7 +1,7 @@
 {
-  "active_plan": "D:/work/phantast-py-stem-cell-confluency/.sisyphus/plans/fix-window-spawn.md",
-  "started_at": "2025-03-06T05:00:00Z",
-  "session_ids": ["ses_fix_spawn_001"],
-  "plan_name": "fix-window-spawn",
+  "active_plan": "D:/work/phantast-py-stem-cell-confluency/.sisyphus/plans/combine-image-pipeline.md",
+  "started_at": "2025-03-07T09:35:00Z",
+  "session_ids": ["ses_339dedbf9ffeVbUWA7kIogvrk2"],
+  "plan_name": "combine-image-pipeline",
   "worktree_path": "D:/work/phantast-py-stem-cell-confluency"
 }
