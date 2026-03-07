@@ -82,11 +82,13 @@ class UnifiedRightPanel(QFrame):
         layout.addSpacing(16)
 
         # Folder Explorer Section
-        folder_header = QHBoxLayout()
+        self.folder_header_widget = QWidget(parent=page)
+        self.folder_header_widget.setObjectName("folderHeaderWidget")
+        folder_header = QHBoxLayout(self.folder_header_widget)
         folder_header.setContentsMargins(0, 0, 0, 0)
         folder_header.setSpacing(8)
 
-        folder_label = QLabel("📁 Folder Explorer", parent=page)
+        folder_label = QLabel("📁 Folder Explorer", parent=self.folder_header_widget)
         folder_label.setObjectName("sectionHeader")
         folder_label.setStyleSheet(
             "color: #E8EAED; font-size: 14px; font-weight: bold;"
@@ -95,7 +97,7 @@ class UnifiedRightPanel(QFrame):
 
         folder_header.addStretch()
 
-        self.refresh_btn = QPushButton("↻", parent=page)
+        self.refresh_btn = QPushButton("↻", parent=self.folder_header_widget)
         self.refresh_btn.setObjectName("refreshBtn")
         self.refresh_btn.setFixedSize(24, 24)
         self.refresh_btn.setToolTip("Refresh folder")
@@ -115,7 +117,7 @@ class UnifiedRightPanel(QFrame):
         """)
         folder_header.addWidget(self.refresh_btn)
 
-        layout.addLayout(folder_header)
+        layout.addWidget(self.folder_header_widget)
 
         layout.addSpacing(8)
 
@@ -527,3 +529,22 @@ class UnifiedRightPanel(QFrame):
         self._clear_params_layout()
 
         self.show_metadata()
+
+    def set_folder_explorer_visible(self, visible: bool):
+        """Show or hide the folder explorer section.
+
+        Args:
+            visible: True to show folder explorer, False to hide
+        """
+        if visible:
+            self.folder_header_widget.show()
+            self.file_list.show()
+            # Show empty label only if we have no files
+            if self.file_list.count() == 0:
+                self.empty_label.show()
+            else:
+                self.empty_label.hide()
+        else:
+            self.folder_header_widget.hide()
+            self.file_list.hide()
+            self.empty_label.hide()

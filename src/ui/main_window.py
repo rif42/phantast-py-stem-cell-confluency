@@ -313,12 +313,18 @@ class MainWindow(QMainWindow):
         )
         if file_path:
             self.image_controller.handle_open_single_image(file_path)
+            # Hide folder explorer in single image mode
+            self.right_panel.set_folder_explorer_visible(False)
+            # Create single image input node in pipeline
+            self._create_single_image_node(file_path)
 
     def action_open_folder(self):
         """Open folder dialog."""
         folder_path = QFileDialog.getExistingDirectory(self, "Select Input Folder")
         if folder_path:
             self.image_controller.handle_open_folder(folder_path)
+            # Show folder explorer in folder mode
+            self.right_panel.set_folder_explorer_visible(True)
 
     def toggle_pan_mode(self, checked):
         """Toggle canvas pan mode."""
@@ -356,6 +362,42 @@ class MainWindow(QMainWindow):
             status="idle",
             enabled=True,
             parameters={},
+        )
+        self.pipeline_controller.add_node(node)
+
+        # Update the pipeline stack view
+        self._refresh_pipeline_view()
+
+    def _create_single_image_node(self, file_path: str):
+        """Create a single image input node in the pipeline.
+
+        Args:
+            file_path: Path to the selected image file
+        """
+        import os
+        import uuid
+
+        # Remove any existing input nodes to avoid duplicates
+        existing_input = None
+        for node in self.pipeline_controller.pipeline.nodes:
+            if node.type == "input_single_image":
+                existing_input = node
+                break
+
+        if existing_input:
+            self.pipeline_controller.remove_node(existing_input.id)
+
+        # Create new input node
+        filename = os.path.basename(file_path)
+        node = PipelineNode(
+            id=str(uuid.uuid4()),
+            type="input_single_image",
+            name="Single Image",
+            description=f"Input: {filename}",
+            icon="🖼️",
+            status="idle",
+            enabled=True,
+            parameters={"file_path": file_path},
         )
         self.pipeline_controller.add_node(node)
 
