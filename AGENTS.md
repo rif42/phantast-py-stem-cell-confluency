@@ -134,6 +134,24 @@ def get_resource_path(relative_path):
 
 ## PyQt6 CRITICAL RULES (READ BEFORE ANY UI CHANGE)
 
+### SINGLE PAGE APP - NO EXTRA WINDOWS
+
+**This is a SINGLE PAGE APPLICATION.** Unless explicitly requested:
+- ❌ NO popups
+- ❌ NO dialog boxes  
+- ❌ NO separate windows
+- ❌ NO tooltips that spawn as windows
+- ✅ Everything must be embedded in the main window
+
+**Window spawning is NEVER acceptable.** Any widget appearing as a separate window is a BUG.
+
+**For Reviewers (Momus/Metis):**
+When reviewing PyQt6 plans/changes, verify:
+- [ ] All QWidget subclasses have `parent=None` parameter
+- [ ] All `super().__init__(parent=parent)` calls pass parent
+- [ ] No `QDialog`, `QMessageBox`, or popup widgets are introduced
+- [ ] Reference: https://doc.qt.io/qtforpython-6/PySide6/QtWidgets/
+
 ### The #1 Rule: ALWAYS SET PARENT
 
 **WINDOW SPAWNING BUG:** If you create a widget without a parent, it becomes a separate window. This is the most common and frustrating bug.
