@@ -1,0 +1,1 @@
+Placeholder steps registered: grayscale=True, crop=True

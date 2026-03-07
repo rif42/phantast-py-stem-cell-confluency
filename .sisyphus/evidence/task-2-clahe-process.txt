@@ -1,0 +1,1 @@
+CLAHE process test: Output shape (100, 100), dtype uint8

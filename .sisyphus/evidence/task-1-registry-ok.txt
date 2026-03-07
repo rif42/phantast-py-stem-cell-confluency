@@ -1,0 +1,1 @@
+Step registry test passed. Steps registered: clahe, grayscale, crop

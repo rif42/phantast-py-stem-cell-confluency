@@ -1,7 +1,7 @@
 {
-  "active_plan": "D:/work/phantast-py-stem-cell-confluency/.sisyphus/plans/global-stylesheet-refactor.md",
-  "started_at": "2025-03-05T12:00:00Z",
-  "session_ids": [],
-  "plan_name": "global-stylesheet-refactor",
+  "active_plan": "D:/work/phantast-py-stem-cell-confluency/.sisyphus/plans/fix-window-spawn.md",
+  "started_at": "2025-03-06T05:00:00Z",
+  "session_ids": ["ses_fix_spawn_001"],
+  "plan_name": "fix-window-spawn",
   "worktree_path": "D:/work/phantast-py-stem-cell-confluency"
 }
