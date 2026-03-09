@@ -221,6 +221,7 @@ class PipelineStackWidget(QFrame):
     delete_node = pyqtSignal(str)  # node_id
     node_selected = pyqtSignal(dict)  # node_data
     node_reordered = pyqtSignal(list)  # new_order list of node_ids
+    run_pipeline = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -394,6 +395,7 @@ class PipelineStackWidget(QFrame):
         # Bottom Action
         self.run_button = QPushButton("Run Pipeline", parent=self)
         self.run_button.setObjectName("runBtn")
+        self.run_button.clicked.connect(self.run_pipeline.emit)
         layout.addWidget(self.run_button)
 
     def render_nodes(self):

@@ -307,6 +307,7 @@ class MainWindow(QMainWindow):
         self.pipeline_stack.toggle_node.connect(self.handle_toggle_node)
         self.pipeline_stack.delete_node.connect(self.handle_delete_node)
         self.pipeline_stack.node_reordered.connect(self.handle_node_reordered)
+        self.pipeline_stack.run_pipeline.connect(self.handle_run_pipeline)
         self.pipeline_stack.node_selected.connect(self.handle_node_selected)
 
         # Right panel signals
@@ -461,6 +462,10 @@ class MainWindow(QMainWindow):
     def handle_node_param_changed(self, node_id, param_name, value):
         """Handle parameter change from properties panel and auto-save."""
         self.pipeline_controller.update_node_params(node_id, {param_name: value})
+
+    def handle_run_pipeline(self):
+        """Handle run pipeline button click."""
+        self._execute_pipeline()
 
     def _refresh_pipeline_view(self):
         """Refresh the pipeline stack view from controller."""
