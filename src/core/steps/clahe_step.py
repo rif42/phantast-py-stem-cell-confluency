@@ -16,35 +16,33 @@ STEP_ICON = "⚙️"
 
 STEP_PARAMETERS = [
     StepParameter(
-        name="clip_limit",
+        name="epsilon",
         type="float",
         default=2.0,
         min=0.1,
         max=10.0,
         step=0.1,
-        description="Threshold for contrast limiting (higher = more contrast enhancement)",
+        description="CLAHE clip limit - threshold for contrast limiting (higher = more contrast enhancement)",
     ),
     StepParameter(
-        name="grid_size",
-        type="int",
-        default=8,
-        min=2,
-        max=32,
-        step=2,
-        description="Size of grid for histogram equalization (tile size)",
+        name="sigma",
+        type="float",
+        default=8.0,
+        min=2.0,
+        max=32.0,
+        step=1.0,
+        description="Tile grid size for histogram equalization (sigma x sigma)",
     ),
 ]
 
 
-def process(
-    image: np.ndarray, clip_limit: float = 2.0, grid_size: int = 8
-) -> np.ndarray:
+def process(image: np.ndarray, epsilon: float = 2.0, sigma: float = 8.0) -> np.ndarray:
     """Apply CLAHE to the input image.
 
     Args:
         image: Input image as numpy array (grayscale)
-        clip_limit: Clip limit for CLAHE (default 2.0)
-        grid_size: Grid/tile size for CLAHE (default 8)
+        epsilon: CLAHE clip limit - threshold for contrast limiting (default 2.0)
+        sigma: Tile grid size for histogram equalization (default 8.0)
 
     Returns:
         Processed image with CLAHE applied
@@ -73,7 +71,7 @@ def process(
 
     # Create CLAHE object
     clahe = cv2.createCLAHE(
-        clipLimit=float(clip_limit), tileGridSize=(int(grid_size), int(grid_size))
+        clipLimit=float(epsilon), tileGridSize=(int(sigma), int(sigma))
     )
 
     # Apply CLAHE

@@ -33,6 +33,7 @@ class UnifiedRightPanel(QFrame):
         self.current_node_id = None
         self.current_node_params = {}
         self.current_files = []  # Store current file list for refresh
+        self._param_widgets = {}  # Map param_name -> widget for validation feedback
 
         self.init_ui()
 
@@ -249,6 +250,8 @@ class UnifiedRightPanel(QFrame):
         self.params_layout.setSpacing(16)
 
         self.properties_layout.addWidget(self.params_container)
+        self.properties_layout.addSpacing(8)
+
         self.properties_layout.addStretch()
 
         scroll_area.setWidget(scroll_content)
@@ -355,10 +358,12 @@ class UnifiedRightPanel(QFrame):
 
     def _clear_params_layout(self):
         """Clear all widgets from params layout."""
+        self._param_widgets.clear()
         while self.params_layout.count():
             item = self.params_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
 
     def _add_parameter_widget(self, param_def):
         """Add a parameter widget based on parameter definition."""
@@ -375,20 +380,24 @@ class UnifiedRightPanel(QFrame):
 
         # Create container
         container = QFrame(parent=self.params_container)
+        container.setObjectName(f"param_container_{param_name}")
         container.setStyleSheet("margin-bottom: 16px;")
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
 
-        # Parameter name label
+        # Parameter name label with validation status
         name_label = QLabel(param_name.replace("_", " ").title(), parent=container)
+        name_label.setObjectName(f"param_label_{param_name}")
         name_label.setStyleSheet("color: #E8EAED; font-size: 13px; font-weight: 500;")
         layout.addWidget(name_label)
 
         # Create appropriate widget based on type
+        input_widget = None
         if param_type == "float":
             spinbox = QDoubleSpinBox(parent=container)
-            spinbox.setDecimals(1)
+            spinbox.setObjectName(f"param_input_{param_name}")
+            spinbox.setDecimals(2)
             if param_step:
                 spinbox.setSingleStep(float(param_step))
             if param_min is not None:
@@ -397,7 +406,9 @@ class UnifiedRightPanel(QFrame):
                 spinbox.setMaximum(float(param_max))
             spinbox.setValue(float(current_value))
             spinbox.valueChanged.connect(
-                lambda val, p=param_name: self._on_parameter_changed(p, val)
+                lambda val, p=param_name, d=param_def: self._on_parameter_changed(
+                    p, val, d
+                )
             )
             spinbox.setStyleSheet("""
                 QDoubleSpinBox {
@@ -407,10 +418,23 @@ class UnifiedRightPanel(QFrame):
                     padding: 8px;
                     color: #E8EAED;
                 }
+                QDoubleSpinBox:focus {
+                    border: 1px solid #00B884;
+                }
+                QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
+                    border: none;
+                    background: #2D3336;
+                    width: 20px;
+                }
+                QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {
+                    background: #3D4448;
+                }
             """)
             layout.addWidget(spinbox)
+            input_widget = spinbox
         elif param_type == "int":
             spinbox = QSpinBox(parent=container)
+            spinbox.setObjectName(f"param_input_{param_name}")
             if param_step:
                 spinbox.setSingleStep(int(param_step))
             if param_min is not None:
@@ -419,7 +443,9 @@ class UnifiedRightPanel(QFrame):
                 spinbox.setMaximum(int(param_max))
             spinbox.setValue(int(current_value))
             spinbox.valueChanged.connect(
-                lambda val, p=param_name: self._on_parameter_changed(p, val)
+                lambda val, p=param_name, d=param_def: self._on_parameter_changed(
+                    p, val, d
+                )
             )
             spinbox.setStyleSheet("""
                 QSpinBox {
@@ -429,13 +455,26 @@ class UnifiedRightPanel(QFrame):
                     padding: 8px;
                     color: #E8EAED;
                 }
+                QSpinBox:focus {
+                    border: 1px solid #00B884;
+                }
             """)
             layout.addWidget(spinbox)
+            input_widget = spinbox
         else:
             # Fallback for other types
             label = QLabel(str(current_value), parent=container)
             label.setStyleSheet("color: #FFFFFF;")
             layout.addWidget(label)
+
+        # Store widget reference for validation feedback
+        if input_widget:
+            self._param_widgets[param_name] = {
+                "widget": input_widget,
+                "container": container,
+                "label": name_label,
+                "definition": param_def,
+            }
 
         # Description text
         if param_desc:
@@ -463,11 +502,154 @@ class UnifiedRightPanel(QFrame):
 
         self.params_layout.addWidget(container)
 
-    def _on_parameter_changed(self, param_name, value):
-        """Handle parameter value change."""
-        if self.current_node_id:
+    def _on_parameter_changed(self, param_name, value, param_def):
+        """Handle parameter value change and auto-save to model.
+
+        Args:
+            param_name: Name of the parameter
+            value: New value
+            param_def: Parameter definition dict with validation rules
+        """
+        if not self.current_node_id:
+            return
+
+        # Validate value
+        is_valid = self._validate_parameter(value, param_def)
+
+        # Update visual feedback
+        self._update_validation_feedback(param_name, is_valid)
+
+        if is_valid:
             self.current_node_params[param_name] = value
             self.node_param_changed.emit(self.current_node_id, param_name, value)
+
+    def _validate_parameter(self, value, param_def):
+        """Validate a parameter value against its definition.
+
+        Args:
+            value: The value to validate
+            param_def: Parameter definition with min/max constraints
+
+        Returns:
+            True if valid, False otherwise
+        """
+        param_type = param_def.get("type", "float")
+
+        try:
+            if param_type == "float":
+                val = float(value)
+                param_min = param_def.get("min")
+                param_max = param_def.get("max")
+
+                if param_min is not None and val < float(param_min):
+                    return False
+                if param_max is not None and val > float(param_max):
+                    return False
+                return True
+
+            elif param_type == "int":
+                val = int(value)
+                param_min = param_def.get("min")
+                param_max = param_def.get("max")
+
+                if param_min is not None and val < int(param_min):
+                    return False
+                if param_max is not None and val > int(param_max):
+                    return False
+                return True
+
+            else:
+                return True  # Unknown types pass through
+        except (ValueError, TypeError):
+            return False
+
+    def _update_validation_feedback(self, param_name, is_valid):
+        """Update visual feedback for a parameter's validation state.
+
+        Args:
+            param_name: Name of the parameter
+            is_valid: True if value is valid, False otherwise
+        """
+        if param_name not in self._param_widgets:
+            return
+
+        widget_info = self._param_widgets[param_name]
+        input_widget = widget_info["widget"]
+        param_def = widget_info["definition"]
+        param_type = param_def.get("type", "float")
+
+        if is_valid:
+            # Valid: normal styling
+            if param_type == "float":
+                input_widget.setStyleSheet("""
+                    QDoubleSpinBox {
+                        background-color: #121415;
+                        border: 1px solid #2D3336;
+                        border-radius: 4px;
+                        padding: 8px;
+                        color: #E8EAED;
+                    }
+                    QDoubleSpinBox:focus {
+                        border: 1px solid #00B884;
+                    }
+                    QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
+                        border: none;
+                        background: #2D3336;
+                        width: 20px;
+                    }
+                    QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {
+                        background: #3D4448;
+                    }
+                """)
+            elif param_type == "int":
+                input_widget.setStyleSheet("""
+                    QSpinBox {
+                        background-color: #121415;
+                        border: 1px solid #2D3336;
+                        border-radius: 4px;
+                        padding: 8px;
+                        color: #E8EAED;
+                    }
+                    QSpinBox:focus {
+                        border: 1px solid #00B884;
+                    }
+                """)
+        else:
+            # Invalid: red border
+            if param_type == "float":
+                input_widget.setStyleSheet("""
+                    QDoubleSpinBox {
+                        background-color: #121415;
+                        border: 2px solid #FF5252;
+                        border-radius: 4px;
+                        padding: 8px;
+                        color: #E8EAED;
+                    }
+                    QDoubleSpinBox:focus {
+                        border: 2px solid #FF5252;
+                    }
+                    QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
+                        border: none;
+                        background: #2D3336;
+                        width: 20px;
+                    }
+                    QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {
+                        background: #3D4448;
+                    }
+                """)
+            elif param_type == "int":
+                input_widget.setStyleSheet("""
+                    QSpinBox {
+                        background-color: #121415;
+                        border: 2px solid #FF5252;
+                        border-radius: 4px;
+                        padding: 8px;
+                        color: #E8EAED;
+                    }
+                    QSpinBox:focus {
+                        border: 2px solid #FF5252;
+                    }
+                """)
 
     def get_current_page(self):
         """Get current page name."""

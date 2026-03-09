@@ -101,6 +101,36 @@ class MainWindow(QMainWindow):
         """Initialize data models."""
         self.image_model = ImageSessionModel()
         self.pipeline_model = Pipeline()
+        self._load_available_nodes()
+
+    def _load_available_nodes(self):
+        """Load available processing nodes from step registry."""
+        try:
+            from src.core.steps import STEP_REGISTRY
+
+            self.available_nodes = []
+            for step_name, step_meta in STEP_REGISTRY.items():
+                node_info = {
+                    "type": step_name,
+                    "name": step_meta.description,
+                    "description": step_meta.description,
+                    "icon": step_meta.icon,
+                    "parameters": [
+                        {
+                            "name": p.name,
+                            "type": p.type,
+                            "default": p.default,
+                            "min": p.min,
+                            "max": p.max,
+                            "step": p.step,
+                            "description": p.description,
+                        }
+                        for p in step_meta.parameters
+                    ],
+                }
+                self.available_nodes.append(node_info)
+        except Exception:
+            self.available_nodes = []
 
     def setup_ui_components(self):
         """Create and arrange the main UI components."""
@@ -429,7 +459,7 @@ class MainWindow(QMainWindow):
         self.right_panel.show_properties(node_data, self.available_nodes)
 
     def handle_node_param_changed(self, node_id, param_name, value):
-        """Handle parameter change from properties panel."""
+        """Handle parameter change from properties panel and auto-save."""
         self.pipeline_controller.update_node_params(node_id, {param_name: value})
 
     def _refresh_pipeline_view(self):
@@ -449,6 +479,25 @@ class MainWindow(QMainWindow):
             ]
         }
         self.pipeline_stack.set_pipeline(pipeline_data)
+
+    def _execute_pipeline(self):
+        """Execute the pipeline on the current image and update canvas.
+
+        This is called when parameters are applied to refresh the preview.
+        """
+        if not self.current_image_path:
+            return
+
+        # TODO: Implement full pipeline execution
+        # For now, just reload the original image to canvas
+        # In a full implementation, this would:
+        # 1. Load the image
+        # 2. Run through pipeline nodes
+        # 3. Update canvas with processed result
+        self.image_canvas.load_image(self.current_image_path)
+
+        # Emit signal for any listeners
+        # self.pipeline_executed.emit()
 
     def _get_current_metadata(self):
         """Get metadata for currently loaded image."""
