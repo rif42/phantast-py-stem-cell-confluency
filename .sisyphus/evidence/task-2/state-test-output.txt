@@ -1,0 +1,8 @@
+Task 2 run button state verification
+========================================
+no_image_no_nodes: PASS | enabled=False | tooltip='Load an image and add processing steps'
+image_no_nodes: PASS | enabled=False | tooltip='Load an image and add processing steps'
+image_with_nodes: PASS | enabled=True | tooltip=''
+image_after_delete_all: PASS | enabled=False | tooltip='Load an image and add processing steps'
+
+OVERALL: PASS

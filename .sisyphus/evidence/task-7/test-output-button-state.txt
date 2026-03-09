@@ -1,0 +1,8 @@
+Command:
+rtk python -c "from PyQt6.QtWidgets import QApplication; from src.ui.main_window import MainWindow; from src.models.pipeline_model import PipelineNode; app=QApplication.instance() or QApplication([]); w=MainWindow(); w.current_image_path='C:/tmp/input.png'; w.pipeline_controller.pipeline.nodes=[PipelineNode(id='1', type='mock_step', name='Mock', description='Mock', icon='x', status='idle', enabled=True, parameters={})]; w._update_run_button_state(); print(f'initial_enabled={w.pipeline_stack.run_button.isEnabled()}'); w._set_processing_state(True, 'Processing: Mock Step...', 42); print(f'processing_enabled={w.pipeline_stack.run_button.isEnabled()} status={w.status_label.text()} progress={w.status_progress.value()}'); w._set_processing_state(False); w._update_run_button_state(); print(f'final_enabled={w.pipeline_stack.run_button.isEnabled()} status={w.status_label.text()} progress_visible={w.status_progress.isVisible()}')"
+
+Output:
+QFont::setPointSize: Point size <= 0 (-1), must be greater than 0
+initial_enabled=True
+processing_enabled=False status=Processing: Mock Step... progress=42
+final_enabled=True status=Processing: Mock Step... progress_visible=False

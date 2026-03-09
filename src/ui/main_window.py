@@ -87,14 +87,22 @@ class PipelineExecutor(QObject):
         # Marshal worker input via a signal so `process_pipeline` runs on the worker thread.
         self.execute_requested.connect(worker.process_pipeline)
 
-        worker.started.connect(self.started.emit)
-        worker.progress.connect(self.progress.emit)
-        worker.step_completed.connect(self.step_completed.emit)
-        worker.finished.connect(self.finished.emit)
-        worker.error.connect(self.error.emit)
+        worker.started.connect(
+            self.started.emit, type=Qt.ConnectionType.QueuedConnection
+        )
+        worker.progress.connect(
+            self.progress.emit, type=Qt.ConnectionType.QueuedConnection
+        )
+        worker.step_completed.connect(
+            self.step_completed.emit, type=Qt.ConnectionType.QueuedConnection
+        )
+        worker.finished.connect(
+            self.finished.emit, type=Qt.ConnectionType.QueuedConnection
+        )
+        worker.error.connect(self.error.emit, type=Qt.ConnectionType.QueuedConnection)
 
-        worker.finished.connect(self._finalize)
-        worker.error.connect(self._finalize)
+        worker.finished.connect(self._finalize, type=Qt.ConnectionType.QueuedConnection)
+        worker.error.connect(self._finalize, type=Qt.ConnectionType.QueuedConnection)
 
         self._thread.start()
         return True
@@ -633,12 +641,15 @@ class MainWindow(QMainWindow):
 
     def _handle_pipeline_started(self):
         """Handle worker started signal in the main thread."""
-        self._set_processing_state(True, "Processing started...", 0)
+        # Cursor already set in handle_run_pipeline, just update status
+        self.status_label.setText("Processing started...")
+        self.status_progress.setValue(0)
 
     def _handle_pipeline_progress(self, step_name: str, percent: int):
         """Handle pipeline progress updates from worker thread."""
         readable_name = step_name.replace("_", " ").title()
-        self._set_processing_state(True, f"Processing: {readable_name}...", percent)
+        self.status_label.setText(f"Processing: {readable_name}...")
+        self.status_progress.setValue(max(0, min(100, percent)))
 
     def _handle_step_completed(self, step_name: str, _result_array):
         """Handle step completion from worker thread."""

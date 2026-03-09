@@ -1,0 +1,11 @@
+Command: python -c "... single PHANTAST node pipeline execution via MainWindow._execute_pipeline()"
+
+QFont::setPointSize: Point size <= 0 (-1), must be greater than 0
+input=D:\work\phantast-py-stem-cell-confluency\test_images\sample_images\test_02.png
+output=D:\work\phantast-py-stem-cell-confluency\test_images\sample_images\test_02_processed.png
+output_exists=True
+created_files=['test_02_processed.png']
+output_shape=(600, 800, 3)
+unique_values_count=2
+unique_values_sample=[0, 255]
+done=phantast

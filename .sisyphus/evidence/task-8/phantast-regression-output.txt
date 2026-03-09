@@ -1,0 +1,22 @@
+============================= test session starts =============================
+platform win32 -- Python 3.14.2, pytest-9.0.2, pluggy-1.6.0 -- C:\Program Files\Python314\python.exe
+cachedir: .pytest_cache
+PyQt6 6.10.1 -- Qt runtime 6.10.1 -- Qt compiled 6.10.0
+rootdir: D:\work\phantast-py-stem-cell-confluency
+plugins: anyio-4.11.0, qt-4.5.0, zarr-3.1.5
+collecting ... collected 12 items
+
+tests/test_phantast_step.py::test_gaussian_filter_separable_preserves_shape PASSED [  8%]
+tests/test_phantast_step.py::test_contrast_stretching_zero_saturation_is_identity PASSED [ 16%]
+tests/test_phantast_step.py::test_contrast_stretching_maps_values_into_unit_range PASSED [ 25%]
+tests/test_phantast_step.py::test_local_contrast_cv_returns_boolean_mask PASSED [ 33%]
+tests/test_phantast_step.py::test_local_contrast_cv_epsilon_controls_sensitivity PASSED [ 41%]
+tests/test_phantast_step.py::test_remove_small_objects_mask_removes_objects_at_or_below_threshold PASSED [ 50%]
+tests/test_phantast_step.py::test_remove_holes_fills_only_holes_within_area_limit PASSED [ 58%]
+tests/test_phantast_step.py::test_kirsch_edge_detection_returns_valid_direction_indices PASSED [ 66%]
+tests/test_phantast_step.py::test_halo_removal_rejects_unknown_kernel_type PASSED [ 75%]
+tests/test_phantast_step.py::test_process_phantast_returns_confluency_and_boolean_mask PASSED [ 83%]
+tests/test_phantast_step.py::test_process_output_is_valid_binary_mask_and_matches_regression PASSED [ 91%]
+tests/test_phantast_step.py::test_calculate_confluency_matches_known_ratio PASSED [100%]
+
+============================= 12 passed in 0.47s ==============================

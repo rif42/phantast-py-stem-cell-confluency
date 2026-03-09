@@ -1,0 +1,6 @@
+PHANTAST Comparison: simplified vs full
+image_shape=(256, 256)
+simplified_foreground_pixels=36485
+full_foreground_pixels=52600
+different_pixels=31449
+percent_difference=47.9874

@@ -1,0 +1,22 @@
+def _generate_output_path(self, input_path: str) -> str:
+    """Generate a non-conflicting processed output path for an input image."""
+    abs_input_path = os.path.abspath(input_path)
+    directory = os.path.dirname(abs_input_path)
+
+    filename = os.path.basename(abs_input_path)
+    name, ext = os.path.splitext(filename)
+    if not ext:
+        ext = ".png"
+
+    base_name = name if name.endswith("_processed") else f"{name}_processed"
+    counter = 1 if name.endswith("_processed") else 0
+
+    candidate_name = base_name if counter == 0 else f"{base_name}_{counter}"
+    candidate_path = os.path.abspath(os.path.join(directory, f"{candidate_name}{ext}"))
+
+    while os.path.exists(candidate_path):
+        counter = 1 if counter == 0 else counter + 1
+        candidate_name = f"{base_name}_{counter}"
+        candidate_path = os.path.abspath(os.path.join(directory, f"{candidate_name}{ext}"))
+
+    return candidate_path

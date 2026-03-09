@@ -150,22 +150,26 @@ Max Concurrent: 3 (Wave 1)
 
 ## TODOs
 
-- [ ] 1. Wire Run Button Signal in MainWindow
+- [ ] 1. Create and Wire Run Pipeline Signal
 
   **What to do**:
-  - In `src/ui/main_window.py`, locate the `wire_signals()` method
-  - Add connection: `self.pipeline_stack.run_pipeline.connect(self.handle_run_pipeline)`
-  - Create `handle_run_pipeline()` method that calls `_execute_pipeline()`
-  - Ensure proper error handling with try/except block
+  - In `src/ui/pipeline_stack_widget.py`:
+    - Add signal definition after other signals (~line 30): `run_pipeline = pyqtSignal()`
+    - In `init_ui()` method, connect run_button click to emit signal: `self.run_button.clicked.connect(self.run_pipeline.emit)`
+  - In `src/ui/main_window.py`:
+    - Locate the `wire_signals()` method (~line 300)
+    - Add connection: `self.pipeline_stack.run_pipeline.connect(self.handle_run_pipeline)`
+    - Create `handle_run_pipeline()` method that calls `_execute_pipeline()`
+  - Ensure proper error handling with try/except block in handler
 
   **Must NOT do**:
-  - Do NOT modify pipeline_stack_widget.py signal definition (it already exists)
-  - Do NOT change existing signal/slot patterns
+  - Do NOT change existing signal/slot patterns beyond adding this connection
   - Do NOT add blocking operations to the handler
+  - Do NOT forget to pass `parent=self` when creating signal connections
 
   **Recommended Agent Profile**:
   - **Category**: `quick`
-  - **Reason**: Simple signal wiring with minimal logic
+  - **Reason**: Simple signal creation and wiring with minimal logic
   - **Skills**: []
 
   **Parallelization**:
@@ -177,32 +181,56 @@ Max Concurrent: 3 (Wave 1)
   **References**:
   - `src/ui/main_window.py:300-316` - Existing wire_signals() method
   - `src/ui/main_window.py:483-500` - Existing _execute_pipeline() stub
+  - `src/ui/pipeline_stack_widget.py:27-35` - Other signals defined (e.g., `add_step_requested`, `toggle_node`)
   - `src/ui/pipeline_stack_widget.py:395-397` - Run button definition
-  - `src/ui/pipeline_stack_widget.py:30-35` - run_pipeline signal definition
+  - PyQt6 signal/slot documentation: https://doc.qt.io/qtforpython-6/PySide6/QtCore/Signal.html
 
   **Acceptance Criteria**:
-  - [ ] `wire_signals()` includes run_pipeline signal connection
+  - [ ] `run_pipeline = pyqtSignal()` added to PipelineStackWidget signals
+  - [ ] `self.run_button.clicked.connect(self.run_pipeline.emit)` added in init_ui()
+  - [ ] `wire_signals()` includes run_pipeline signal connection in MainWindow
   - [ ] `handle_run_pipeline()` method exists and is called on button click
   - [ ] No Qt warnings about unconnected signals
 
   **QA Scenarios**:
 
   ```
-  Scenario: Run button emits signal
-    Tool: Python pytest-qt
+  Scenario: Signal created in PipelineStackWidget
+    Tool: Python direct execution
+    Preconditions: PipelineStackWidget class imported
+    Steps:
+      1. Import PipelineStackWidget from src.ui.pipeline_stack_widget
+      2. Verify PipelineStackWidget has 'run_pipeline' signal attribute
+      3. Verify signal is instance of pyqtSignal
+    Expected Result: Signal exists and is properly defined
+    Evidence: .sisyphus/evidence/task-1-signal-created.txt
+
+  Scenario: Run button click emits signal
+    Tool: pytest-qt
+    Preconditions: PipelineStackWidget instantiated
+    Steps:
+      1. Create PipelineStackWidget instance
+      2. Mock the run_pipeline signal emit method
+      3. Simulate click on run_button
+      4. Assert emit was called
+    Expected Result: Button click triggers signal emission
+    Evidence: .sisyphus/evidence/task-1-button-emits-signal.png
+
+  Scenario: Signal connected to MainWindow handler
+    Tool: pytest-qt
     Preconditions: MainWindow instantiated with PipelineStackWidget
     Steps:
       1. Create QApplication and MainWindow
       2. Mock handle_run_pipeline method
-      3. Emit pipeline_stack.run_pipeline signal
+      3. Click run_button in PipelineStackWidget
       4. Assert mock was called exactly once
     Expected Result: Signal properly connected and handler invoked
-    Evidence: .sisyphus/evidence/task-1-signal-connection.png (screenshot of test pass)
+    Evidence: .sisyphus/evidence/task-1-signal-connected.png (screenshot of test pass)
   ```
 
   **Commit**: YES
-  - Message: `feat(pipeline): wire run button signal to main window handler`
-  - Files: `src/ui/main_window.py`
+  - Message: `feat(pipeline): create and wire run pipeline signal`
+  - Files: `src/ui/pipeline_stack_widget.py`, `src/ui/main_window.py`
 
 - [ ] 2. Add Run Button State Management
 

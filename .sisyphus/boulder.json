@@ -1,10 +1,9 @@
 {
-  "active_plan": "D:/work/phantast-py-stem-cell-confluency/.sisyphus/plans/folder-explorer-single-image.md",
-  "started_at": "2026-03-07T05:15:00Z",
+  "active_plan": "D:/work/phantast-py-stem-cell-confluency/.sisyphus/plans/run-pipeline-implementation.md",
+  "started_at": "2026-03-09T05:30:00Z",
   "session_ids": [
-    "ses_3398258e6ffecwT7pkhIqujoGL",
-    "ses_33966a53fffexlyqDM88A1TZ38"
+    "ses_32f06b569ffernh40OmBYRrFqy"
   ],
-  "plan_name": "folder-explorer-single-image",
+  "plan_name": "run-pipeline-implementation",
   "worktree_path": "D:/work/phantast-py-stem-cell-confluency"
 }

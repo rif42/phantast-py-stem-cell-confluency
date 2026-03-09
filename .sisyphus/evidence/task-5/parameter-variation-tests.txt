@@ -1,0 +1,10 @@
+PHANTAST Parameter Variation Test
+default: foreground_pixels=52600 kwargs={}
+high_sigma: foreground_pixels=58942 kwargs={'sigma': 12.0}
+low_epsilon: foreground_pixels=65536 kwargs={'epsilon': 0.02}
+no_halo: foreground_pixels=57645 kwargs={'halo_removal': False}
+strong_saturation: foreground_pixels=56074 kwargs={'contrast_saturation': 3.0}
+diff_default_vs_high_sigma=6364
+diff_default_vs_low_epsilon=12936
+diff_default_vs_no_halo=5045
+diff_default_vs_strong_saturation=3546

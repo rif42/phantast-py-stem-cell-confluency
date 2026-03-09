@@ -1,0 +1,10 @@
+Command: python -c "... single CLAHE node pipeline execution via MainWindow._execute_pipeline()"
+
+QFont::setPointSize: Point size <= 0 (-1), must be greater than 0
+input=D:\work\phantast-py-stem-cell-confluency\test_images\sample_images\test_01.png
+output=D:\work\phantast-py-stem-cell-confluency\test_images\sample_images\test_01_processed.png
+output_exists=True
+created_files=['test_01_processed.png']
+mode=SINGLE
+active={'filename': 'test_01_processed.png', 'filepath': 'D:\\work\\phantast-py-stem-cell-confluency\\test_images\\sample_images\\test_01_processed.png'}
+done=clahe

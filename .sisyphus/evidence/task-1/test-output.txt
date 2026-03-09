@@ -1,0 +1,6 @@
+Command:
+rtk python -c "import os; os.environ['QT_QPA_PLATFORM']='offscreen'; from PyQt6.QtWidgets import QApplication; from src.ui.pipeline_stack_widget import PipelineStackWidget; from src.ui.main_window import MainWindow; app=QApplication([]); ps=PipelineStackWidget(); fired={'signal':False}; ps.run_pipeline.connect(lambda: fired.__setitem__('signal', True)); ps.run_button.click(); d=type('Dummy', (), {})(); d.called=False; d._execute_pipeline=lambda: setattr(d,'called',True); MainWindow.handle_run_pipeline(d); print('pipeline_stack_run_signal', fired['signal']); print('main_window_handler_calls_execute', d.called)"
+
+Output:
+pipeline_stack_run_signal True
+main_window_handler_calls_execute True

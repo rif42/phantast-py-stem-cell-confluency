@@ -1,0 +1,43 @@
+diff --git a/src/ui/pipeline_stack_widget.py b/src/ui/pipeline_stack_widget.py
+index da58a50..8f36801 100644
+--- a/src/ui/pipeline_stack_widget.py
++++ b/src/ui/pipeline_stack_widget.py
+@@ -221,6 +221,7 @@ class PipelineStackWidget(QFrame):
+     delete_node = pyqtSignal(str)  # node_id
+     node_selected = pyqtSignal(dict)  # node_data
+     node_reordered = pyqtSignal(list)  # new_order list of node_ids
++    run_pipeline = pyqtSignal()
+ 
+     def __init__(self, parent=None):
+         super().__init__(parent=parent)
+@@ -394,6 +395,7 @@ class PipelineStackWidget(QFrame):
+         # Bottom Action
+         self.run_button = QPushButton("Run Pipeline", parent=self)
+         self.run_button.setObjectName("runBtn")
++        self.run_button.clicked.connect(self.run_pipeline.emit)
+         layout.addWidget(self.run_button)
+ 
+     def render_nodes(self):
+diff --git a/src/ui/main_window.py b/src/ui/main_window.py
+index 0f48535..1645afe 100644
+--- a/src/ui/main_window.py
++++ b/src/ui/main_window.py
+@@ -307,6 +307,7 @@ class MainWindow(QMainWindow):
+         self.pipeline_stack.toggle_node.connect(self.handle_toggle_node)
+         self.pipeline_stack.delete_node.connect(self.handle_delete_node)
+         self.pipeline_stack.node_reordered.connect(self.handle_node_reordered)
++        self.pipeline_stack.run_pipeline.connect(self.handle_run_pipeline)
+         self.pipeline_stack.node_selected.connect(self.handle_node_selected)
+ 
+         # Right panel signals
+@@ -462,6 +463,10 @@ class MainWindow(QMainWindow):
+     def handle_node_param_changed(self, node_id, param_name, value):
+         """Handle parameter change from properties panel and auto-save."""
+         self.pipeline_controller.update_node_params(node_id, {param_name: value})
++
++    def handle_run_pipeline(self):
++        """Handle run pipeline button click."""
++        self._execute_pipeline()
+ 
+     def _refresh_pipeline_view(self):
+         """Refresh the pipeline stack view from controller."""
