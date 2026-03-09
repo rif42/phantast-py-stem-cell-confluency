@@ -3,11 +3,31 @@
 from __future__ import annotations
 
 import os
+import logging
 from typing import Any, Iterable, Mapping
 
 import cv2
 import numpy as np
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
+
+
+logger = logging.getLogger(__name__)
+
+
+def get_base_name(filepath: str) -> str:
+    """Extract base name without extension and _processed suffix."""
+    name = os.path.splitext(os.path.basename(filepath))[0]
+    if name.endswith("_processed"):
+        name = name[:-10]
+    return name
+
+
+def create_green_mask_overlay(binary_mask: np.ndarray) -> np.ndarray:
+    """Convert binary mask to green RGBA overlay with 40% opacity."""
+    height, width = binary_mask.shape
+    rgba = np.zeros((height, width, 4), dtype=np.uint8)
+    rgba[binary_mask > 0] = [0, 255, 0, 102]
+    return rgba
 
 
 class PipelineWorker(QObject):
@@ -16,6 +36,7 @@ class PipelineWorker(QObject):
     started = pyqtSignal()
     progress = pyqtSignal(str, int)
     step_completed = pyqtSignal(str, object)
+    mask_saved = pyqtSignal(str, str)
     finished = pyqtSignal(str)
     error = pyqtSignal(str)
 
@@ -61,6 +82,27 @@ class PipelineWorker(QObject):
                     processed_image = step.process(processed_image, **params)
                     if processed_image is None:
                         raise ValueError(f"Step '{step_name}' returned no image")
+
+                    if step_name == "phantast" and processed_image.ndim == 2:
+                        try:
+                            overlay = create_green_mask_overlay(processed_image)
+                            base_name = get_base_name(output_path)
+                            output_dir = os.path.dirname(output_path)
+                            mask_path = os.path.join(
+                                output_dir, f"{base_name}_mask.png"
+                            )
+
+                            if cv2.imwrite(mask_path, overlay):
+                                self.mask_saved.emit(input_path, mask_path)
+                                logger.info("Mask saved to %s", mask_path)
+                            else:
+                                logger.error("Failed to save mask to %s", mask_path)
+                        except (
+                            Exception
+                        ) as mask_exc:  # pragma: no cover - graceful path
+                            logger.error(
+                                "Mask save failed for %s: %s", output_path, mask_exc
+                            )
 
                     self.step_completed.emit(step_name, processed_image)
                     self.progress.emit(step_name, int((step_index / total_steps) * 100))

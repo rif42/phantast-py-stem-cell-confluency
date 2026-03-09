@@ -1,0 +1,18 @@
+Task 3 QA Scenario: ComparisonControls control states
+
+Command:
+rtk python -c "from PyQt6.QtWidgets import QApplication; from src.ui.comparison_controls import ComparisonControls; app = QApplication.instance() or QApplication([]); w = ComparisonControls(); events = []; w.view_mode_changed.connect(lambda mode: events.append(('view', mode))); w.mask_visibility_changed.connect(lambda visible: events.append(('mask', visible))); print('mask_enabled_initial=', w.mask_toggle.isEnabled()); w.view_toggle.click(); print('view_after_first_click=', events[-1]); w.view_toggle.click(); print('view_after_second_click=', events[-1]); w.set_mask_available(True); print('mask_enabled_after_available=', w.mask_toggle.isEnabled()); w.mask_toggle.click(); print('mask_after_click=', events[-1]); events_before_reset = len(events); w.reset(); print('reset_view_checked=', w.view_toggle.isChecked()); print('reset_mask_checked=', w.mask_toggle.isChecked()); print('reset_mask_enabled=', w.mask_toggle.isEnabled()); print('reset_hidden=', w.isHidden()); print('signals_during_reset=', len(events) - events_before_reset)"
+
+Observed output:
+mask_enabled_initial= False
+view_after_first_click= ('view', 'original')
+view_after_second_click= ('view', 'processed')
+mask_enabled_after_available= True
+mask_after_click= ('mask', True)
+reset_view_checked= True
+reset_mask_checked= False
+reset_mask_enabled= False
+reset_hidden= True
+signals_during_reset= 0
+
+Result: PASS
