@@ -1,0 +1,21 @@
+Task 9 Manual End-to-End Test Results
+
+[1] mode=single scenario=standard input=.sisyphus/evidence/task-9/runtime_data/real_sample.jpg elapsed=0.859s
+    output_exists=true output=.sisyphus/evidence/task-9/runtime_data/real_sample_processed.jpg
+
+[2] mode=single scenario=standard input=.sisyphus/evidence/task-9/runtime_data/real_sample.png elapsed=1.730s
+    output_exists=true output=.sisyphus/evidence/task-9/runtime_data/real_sample_processed.png
+
+[3] mode=single scenario=standard input=.sisyphus/evidence/task-9/runtime_data/real_sample.tiff elapsed=1.051s
+    output_exists=true output=.sisyphus/evidence/task-9/runtime_data/real_sample_processed.tiff
+
+[4] mode=single scenario=standard input=.sisyphus/evidence/task-9/runtime_data/real_large_derived.png elapsed=17.175s
+    output_exists=true output=.sisyphus/evidence/task-9/runtime_data/real_large_derived_processed.png
+
+[5] mode=folder scenario=standard folder=.sisyphus/evidence/task-9/runtime_data selected_input=real_sample.jpg elapsed=0.786s
+    output_filename=real_sample_processed_1.jpg output_in_model_files=true file_list_grew=true
+
+[6] mode=single scenario=rapid_start input=.sisyphus/evidence/task-9/runtime_data/real_sample.jpg elapsed=0.768s
+    rapid_click_new_output_count=1 executor_running_after=false
+
+Result: all manual scenarios completed successfully.

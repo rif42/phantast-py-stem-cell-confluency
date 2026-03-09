@@ -1,0 +1,11 @@
+Test Suite Verification
+
+Command: PYTHONPATH=. pytest tests/ -v
+Result: 31 passed, 17 errors
+Failure scope: `tests/test_folder_explorer.py` only
+Error class: pytest-qt `TypeError` while adding `UnifiedRightPanel` widget (PyQt6/PySide6 mismatch in qtbot type expectations)
+
+Pipeline-specific regression suite
+
+Command: PYTHONPATH=. pytest tests/test_pipeline_execution.py tests/test_pipeline_worker.py tests/test_output_path.py -v
+Result: 19 passed, 0 failed

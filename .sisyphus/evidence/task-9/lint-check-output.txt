@@ -1,0 +1,452 @@
+F401 `dataclasses.field` imported but unused
+ --> src\core\steps\__init__.py:7:36
+  |
+5 | """
+6 |
+7 | from dataclasses import dataclass, field
+  |                                    ^^^^^
+8 | from typing import Any, Callable, Dict, List, Optional, Union, overload
+9 | import numpy as np
+  |
+help: Remove unused import: `dataclasses.field`
+
+F401 `.clahe_step` imported but unused; consider using `importlib.util.find_spec` to test for availability
+   --> src\core\steps\__init__.py:179:19
+    |
+177 | # Auto-import steps to register them in STEP_REGISTRY
+178 | try:
+179 |     from . import clahe_step, grayscale_step, crop_step, phantast_step
+    |                   ^^^^^^^^^^
+180 | except ImportError:
+181 |     pass  # Steps may not be available in all environments
+    |
+help: Remove unused import
+
+F401 `.grayscale_step` imported but unused; consider using `importlib.util.find_spec` to test for availability
+   --> src\core\steps\__init__.py:179:31
+    |
+177 | # Auto-import steps to register them in STEP_REGISTRY
+178 | try:
+179 |     from . import clahe_step, grayscale_step, crop_step, phantast_step
+    |                               ^^^^^^^^^^^^^^
+180 | except ImportError:
+181 |     pass  # Steps may not be available in all environments
+    |
+help: Remove unused import
+
+F401 `.crop_step` imported but unused; consider using `importlib.util.find_spec` to test for availability
+   --> src\core\steps\__init__.py:179:47
+    |
+177 | # Auto-import steps to register them in STEP_REGISTRY
+178 | try:
+179 |     from . import clahe_step, grayscale_step, crop_step, phantast_step
+    |                                               ^^^^^^^^^
+180 | except ImportError:
+181 |     pass  # Steps may not be available in all environments
+    |
+help: Remove unused import
+
+F401 `.phantast_step` imported but unused; consider using `importlib.util.find_spec` to test for availability
+   --> src\core\steps\__init__.py:179:58
+    |
+177 | # Auto-import steps to register them in STEP_REGISTRY
+178 | try:
+179 |     from . import clahe_step, grayscale_step, crop_step, phantast_step
+    |                                                          ^^^^^^^^^^^^^
+180 | except ImportError:
+181 |     pass  # Steps may not be available in all environments
+    |
+help: Remove unused import
+
+F401 [*] `typing.Any` imported but unused
+  --> src\core\steps\clahe_step.py:8:20
+   |
+ 6 | import cv2
+ 7 | import numpy as np
+ 8 | from typing import Any
+   |                    ^^^
+ 9 |
+10 | from . import register_step, StepParameter
+   |
+help: Remove unused import: `typing.Any`
+
+F401 [*] `typing.Any` imported but unused
+  --> src\core\steps\crop_step.py:8:20
+   |
+ 7 | import numpy as np
+ 8 | from typing import Any
+   |                    ^^^
+ 9 |
+10 | from . import register_step, StepParameter
+   |
+help: Remove unused import: `typing.Any`
+
+F401 [*] `typing.Any` imported but unused
+  --> src\core\steps\grayscale_step.py:8:20
+   |
+ 7 | import numpy as np
+ 8 | from typing import Any
+   |                    ^^^
+ 9 |
+10 | from . import register_step, StepParameter
+   |
+help: Remove unused import: `typing.Any`
+
+F401 [*] `typing.Optional` imported but unused
+ --> src\models\pipeline_model.py:2:37
+  |
+1 | from dataclasses import dataclass, field
+2 | from typing import List, Dict, Any, Optional
+  |                                     ^^^^^^^^
+3 |
+4 | @dataclass
+  |
+help: Remove unused import: `typing.Optional`
+
+F401 [*] `PyQt6.QtWidgets.QSpacerItem` imported but unused
+ --> src\ui\batch_execution_view.py:5:5
+  |
+3 | from PyQt6.QtWidgets import (
+4 |     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+5 |     QSpacerItem, QSizePolicy, QFrame, QScrollArea, QSplitter
+  |     ^^^^^^^^^^^
+6 | )
+7 | from PyQt6.QtCore import Qt, pyqtSignal
+  |
+help: Remove unused import
+
+F401 [*] `PyQt6.QtWidgets.QSizePolicy` imported but unused
+ --> src\ui\batch_execution_view.py:5:18
+  |
+3 | from PyQt6.QtWidgets import (
+4 |     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+5 |     QSpacerItem, QSizePolicy, QFrame, QScrollArea, QSplitter
+  |                  ^^^^^^^^^^^
+6 | )
+7 | from PyQt6.QtCore import Qt, pyqtSignal
+  |
+help: Remove unused import
+
+F401 [*] `PyQt6.QtGui.QIcon` imported but unused
+  --> src\ui\batch_execution_view.py:9:25
+   |
+ 7 | from PyQt6.QtCore import Qt, pyqtSignal
+ 8 |
+ 9 | from PyQt6.QtGui import QIcon, QPainter, QColor, QPen
+   |                         ^^^^^
+10 |
+11 | class ToggleSwitch(QPushButton):
+   |
+help: Remove unused import: `PyQt6.QtGui.QIcon`
+
+E741 Ambiguous variable name: `l`
+   --> src\ui\batch_execution_view.py:364:17
+    |
+362 |                 lbl_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+363 |                 w = QWidget()
+364 |                 l = QHBoxLayout(w)
+    |                 ^
+365 |                 l.setContentsMargins(0,0,0,0)
+366 |                 l.addWidget(lbl_badge, alignment=Qt.AlignmentFlag.AlignCenter)
+    |
+
+E402 Module level import not at top of file
+   --> src\ui\batch_execution_view.py:569:1
+    |
+567 |         """)
+568 |
+569 | from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+570 |
+571 | class HistogramWidget(QWidget):
+    |
+
+F401 [*] `PyQt6.QtWidgets.QSpacerItem` imported but unused
+ --> src\ui\image_navigation.py:7:5
+  |
+5 |     QLabel,
+6 |     QPushButton,
+7 |     QSpacerItem,
+  |     ^^^^^^^^^^^
+8 |     QSizePolicy,
+9 |     QFrame,
+  |
+help: Remove unused import
+
+F401 [*] `PyQt6.QtWidgets.QScrollArea` imported but unused
+  --> src\ui\image_navigation.py:10:5
+   |
+ 8 |     QSizePolicy,
+ 9 |     QFrame,
+10 |     QScrollArea,
+   |     ^^^^^^^^^^^
+11 |     QListWidget,
+12 |     QListWidgetItem,
+   |
+help: Remove unused import
+
+F401 [*] `PyQt6.QtWidgets.QListWidgetItem` imported but unused
+  --> src\ui\image_navigation.py:12:5
+   |
+10 |     QScrollArea,
+11 |     QListWidget,
+12 |     QListWidgetItem,
+   |     ^^^^^^^^^^^^^^^
+13 |     QFileDialog,
+14 | )
+   |
+help: Remove unused import
+
+F401 [*] `PyQt6.QtGui.QIcon` imported but unused
+  --> src\ui\image_navigation.py:16:25
+   |
+14 | )
+15 | from PyQt6.QtCore import Qt, pyqtSignal
+16 | from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor
+   |                         ^^^^^
+17 |
+18 | from .image_canvas import ImageCanvas
+   |
+help: Remove unused import
+
+F401 [*] `PyQt6.QtGui.QPixmap` imported but unused
+  --> src\ui\image_navigation.py:16:32
+   |
+14 | )
+15 | from PyQt6.QtCore import Qt, pyqtSignal
+16 | from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor
+   |                                ^^^^^^^
+17 |
+18 | from .image_canvas import ImageCanvas
+   |
+help: Remove unused import
+
+F401 [*] `PyQt6.QtGui.QPainter` imported but unused
+  --> src\ui\image_navigation.py:16:41
+   |
+14 | )
+15 | from PyQt6.QtCore import Qt, pyqtSignal
+16 | from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor
+   |                                         ^^^^^^^^
+17 |
+18 | from .image_canvas import ImageCanvas
+   |
+help: Remove unused import
+
+F401 [*] `PyQt6.QtGui.QColor` imported but unused
+  --> src\ui\image_navigation.py:16:51
+   |
+14 | )
+15 | from PyQt6.QtCore import Qt, pyqtSignal
+16 | from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor
+   |                                                   ^^^^^^
+17 |
+18 | from .image_canvas import ImageCanvas
+   |
+help: Remove unused import
+
+F401 [*] `os` imported but unused
+ --> src\ui\pipeline_stack_widget.py:3:8
+  |
+1 | """Pipeline Stack Widget - Reusable pipeline node stack component."""
+2 |
+3 | import os
+  |        ^^
+4 | import json
+5 | from PyQt6.QtWidgets import (
+  |
+help: Remove unused import: `os`
+
+F401 [*] `json` imported but unused
+ --> src\ui\pipeline_stack_widget.py:4:8
+  |
+3 | import os
+4 | import json
+  |        ^^^^
+5 | from PyQt6.QtWidgets import (
+6 |     QWidget,
+  |
+help: Remove unused import: `json`
+
+F401 [*] `PyQt6.QtWidgets.QSpacerItem` imported but unused
+  --> src\ui\pipeline_stack_widget.py:11:5
+   |
+ 9 |     QLabel,
+10 |     QPushButton,
+11 |     QSpacerItem,
+   |     ^^^^^^^^^^^
+12 |     QSizePolicy,
+13 |     QFrame,
+   |
+help: Remove unused import
+
+F401 [*] `PyQt6.QtWidgets.QSizePolicy` imported but unused
+  --> src\ui\pipeline_stack_widget.py:12:5
+   |
+10 |     QPushButton,
+11 |     QSpacerItem,
+12 |     QSizePolicy,
+   |     ^^^^^^^^^^^
+13 |     QFrame,
+14 |     QScrollArea,
+   |
+help: Remove unused import
+
+F401 [*] `PyQt6.QtWidgets.QDoubleSpinBox` imported but unused
+  --> src\ui\pipeline_stack_widget.py:16:5
+   |
+14 |     QScrollArea,
+15 |     QMenu,
+16 |     QDoubleSpinBox,
+   |     ^^^^^^^^^^^^^^
+17 |     QSpinBox,
+18 | )
+   |
+help: Remove unused import
+
+F401 [*] `PyQt6.QtWidgets.QSpinBox` imported but unused
+  --> src\ui\pipeline_stack_widget.py:17:5
+   |
+15 |     QMenu,
+16 |     QDoubleSpinBox,
+17 |     QSpinBox,
+   |     ^^^^^^^^
+18 | )
+19 | from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QMimeData
+   |
+help: Remove unused import
+
+F401 [*] `PyQt6.QtCore.QPoint` imported but unused
+  --> src\ui\pipeline_stack_widget.py:19:42
+   |
+17 |     QSpinBox,
+18 | )
+19 | from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QMimeData
+   |                                          ^^^^^^
+20 | from PyQt6.QtGui import QIcon, QPainter, QColor, QPen, QDrag
+   |
+help: Remove unused import: `PyQt6.QtCore.QPoint`
+
+F401 [*] `PyQt6.QtGui.QIcon` imported but unused
+  --> src\ui\pipeline_stack_widget.py:20:25
+   |
+18 | )
+19 | from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QMimeData
+20 | from PyQt6.QtGui import QIcon, QPainter, QColor, QPen, QDrag
+   |                         ^^^^^
+   |
+help: Remove unused import
+
+F401 [*] `PyQt6.QtGui.QPen` imported but unused
+  --> src\ui\pipeline_stack_widget.py:20:50
+   |
+18 | )
+19 | from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QMimeData
+20 | from PyQt6.QtGui import QIcon, QPainter, QColor, QPen, QDrag
+   |                                                  ^^^^
+   |
+help: Remove unused import
+
+F841 Local variable `badge_color` is assigned to but never used
+   --> src\ui\pipeline_stack_widget.py:160:13
+    |
+158 |         elif ntype == "algorithm":
+159 |             badge_text = "OUTPUT"
+160 |             badge_color = "#E8A317"
+    |             ^^^^^^^^^^^
+161 |
+162 |         badge = QLabel(badge_text, parent=self)
+    |
+help: Remove assignment to unused variable `badge_color`
+
+F401 [*] `PyQt6.QtWidgets.QSpacerItem` imported but unused
+  --> src\ui\pipeline_view.py:9:5
+   |
+ 7 |     QLabel,
+ 8 |     QPushButton,
+ 9 |     QSpacerItem,
+   |     ^^^^^^^^^^^
+10 |     QSizePolicy,
+11 |     QFrame,
+   |
+help: Remove unused import
+
+F401 [*] `PyQt6.QtWidgets.QSizePolicy` imported but unused
+  --> src\ui\pipeline_view.py:10:5
+   |
+ 8 |     QPushButton,
+ 9 |     QSpacerItem,
+10 |     QSizePolicy,
+   |     ^^^^^^^^^^^
+11 |     QFrame,
+12 |     QScrollArea,
+   |
+help: Remove unused import
+
+F401 [*] `PyQt6.QtGui.QIcon` imported but unused
+  --> src\ui\pipeline_view.py:19:25
+   |
+17 | )
+18 | from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QMimeData
+19 | from PyQt6.QtGui import QIcon, QPainter, QColor, QPen, QDrag
+   |                         ^^^^^
+   |
+help: Remove unused import
+
+F401 [*] `PyQt6.QtGui.QPen` imported but unused
+  --> src\ui\pipeline_view.py:19:50
+   |
+17 | )
+18 | from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QMimeData
+19 | from PyQt6.QtGui import QIcon, QPainter, QColor, QPen, QDrag
+   |                                                  ^^^^
+   |
+help: Remove unused import
+
+F841 Local variable `badge_color` is assigned to but never used
+   --> src\ui\pipeline_view.py:159:13
+    |
+157 |         elif ntype == "algorithm":
+158 |             badge_text = "OUTPUT"
+159 |             badge_color = "#E8A317"
+    |             ^^^^^^^^^^^
+160 |
+161 |         badge = QLabel(badge_text)
+    |
+help: Remove assignment to unused variable `badge_color`
+
+E741 Ambiguous variable name: `l`
+   --> src\ui\pipeline_view.py:757:9
+    |
+755 |         container = QFrame()
+756 |         container.setStyleSheet("margin-bottom: 16px;")
+757 |         l = QVBoxLayout(container)
+    |         ^
+758 |         l.setContentsMargins(0, 0, 0, 0)
+759 |         l.setSpacing(4)
+    |
+
+F401 [*] `typing.Optional` imported but unused
+  --> src\ui\styles.py:23:20
+   |
+21 | """
+22 |
+23 | from typing import Optional
+   |                    ^^^^^^^^
+   |
+help: Remove unused import: `typing.Optional`
+
+F401 [*] `PyQt6.QtWidgets.QSizePolicy` imported but unused
+  --> src\ui\unified_right_panel.py:13:5
+   |
+11 |     QDoubleSpinBox,
+12 |     QSpinBox,
+13 |     QSizePolicy,
+   |     ^^^^^^^^^^^
+14 |     QListWidget,
+15 |     QPushButton,
+   |
+help: Remove unused import: `PyQt6.QtWidgets.QSizePolicy`
+
+Found 39 errors.
+[*] 29 fixable with the `--fix` option (2 hidden fixes can be enabled with the `--unsafe-fixes` option).

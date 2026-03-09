@@ -2,6 +2,7 @@
 
 import sys
 import os
+import logging
 from typing import Optional
 
 # Import our custom components
@@ -38,6 +39,9 @@ from src.controllers.image_controller import ImageNavigationController
 from src.controllers.pipeline_controller import PipelineController
 from src.core.steps import STEP_REGISTRY
 from src.core.pipeline_worker import PipelineWorker
+
+
+logger = logging.getLogger(__name__)
 
 
 class PipelineExecutor(QObject):
@@ -80,6 +84,7 @@ class PipelineExecutor(QObject):
                 step_registry,
             )
         )
+        # Marshal worker input via a signal so `process_pipeline` runs on the worker thread.
         self.execute_requested.connect(worker.process_pipeline)
 
         worker.started.connect(self.started.emit)
@@ -637,7 +642,7 @@ class MainWindow(QMainWindow):
 
     def _handle_step_completed(self, step_name: str, _result_array):
         """Handle step completion from worker thread."""
-        print(f"Pipeline step completed: {step_name}")
+        logger.debug("Pipeline step completed: %s", step_name)
 
     def _handle_pipeline_finished(self, output_path: str):
         """Apply successful pipeline output and restore UI state."""
@@ -676,7 +681,7 @@ class MainWindow(QMainWindow):
 
     def _handle_pipeline_error(self, error_message: str):
         """Handle worker errors and restore UI state."""
-        print(f"Pipeline execution failed: {error_message}")
+        logger.error("Pipeline execution failed: %s", error_message)
         self.status_label.setText("Processing failed")
         self._set_processing_state(False)
         self._update_run_button_state()

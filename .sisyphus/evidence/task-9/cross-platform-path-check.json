@@ -1,0 +1,7 @@
+{
+  "D:/data/image.jpg": "D:\\data\\image_processed.jpg",
+  "C:/tmp/sample_processed.png": "C:\\tmp\\sample_processed_1.png",
+  "/tmp/sample.tiff": "D:\\tmp\\sample_processed.tiff",
+  "relative/noext": "D:\\work\\phantast-py-stem-cell-confluency\\relative\\noext_processed.png",
+  "platform": "win32"
+}

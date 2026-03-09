@@ -1,0 +1,13 @@
+{
+  "input": "D:\\work\\phantast-py-stem-cell-confluency\\.sisyphus\\evidence\\task-9\\runtime_data\\real_sample.tiff",
+  "input_size_mb": 3.09,
+  "run1_sec": 1.274,
+  "run2_sec": 2.362,
+  "threshold_sec": 30.0,
+  "under_threshold": true,
+  "tracemalloc_before_bytes": 32,
+  "tracemalloc_after_bytes": 6022,
+  "tracemalloc_peak_bytes": 111509948,
+  "memory_growth_bytes": 5990,
+  "memory_growth_under_8mb": true
+}

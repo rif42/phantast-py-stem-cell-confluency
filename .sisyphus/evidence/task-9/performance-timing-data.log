@@ -1,0 +1,15 @@
+Task 9 Performance Timing Data
+
+input=.sisyphus/evidence/task-9/runtime_data/real_sample.tiff
+input_size_mb=3.09
+run1_sec=1.274
+run2_sec=2.362
+threshold_sec=30.0
+under_threshold=true
+memory_growth_bytes=5990
+memory_growth_under_8mb=true
+
+Large image edge-case timing (from manual run)
+input=.sisyphus/evidence/task-9/runtime_data/real_large_derived.png
+input_size_mb=12.381
+elapsed_sec=17.175

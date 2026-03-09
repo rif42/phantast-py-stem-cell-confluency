@@ -1,0 +1,65 @@
+{
+  "cases": [
+    {
+      "mode": "single",
+      "input": "D:\\work\\phantast-py-stem-cell-confluency\\.sisyphus\\evidence\\task-9\\runtime_data\\real_sample.jpg",
+      "elapsed_sec": 0.859,
+      "new_files": [
+        "real_sample_processed.jpg"
+      ],
+      "output": "D:\\work\\phantast-py-stem-cell-confluency\\.sisyphus\\evidence\\task-9\\runtime_data\\real_sample_processed.jpg",
+      "output_exists": true,
+      "status_text": "Processing complete"
+    },
+    {
+      "mode": "single",
+      "input": "D:\\work\\phantast-py-stem-cell-confluency\\.sisyphus\\evidence\\task-9\\runtime_data\\real_sample.png",
+      "elapsed_sec": 1.73,
+      "new_files": [
+        "real_sample_processed.png"
+      ],
+      "output": "D:\\work\\phantast-py-stem-cell-confluency\\.sisyphus\\evidence\\task-9\\runtime_data\\real_sample_processed.png",
+      "output_exists": true,
+      "status_text": "Processing complete"
+    },
+    {
+      "mode": "single",
+      "input": "D:\\work\\phantast-py-stem-cell-confluency\\.sisyphus\\evidence\\task-9\\runtime_data\\real_sample.tiff",
+      "elapsed_sec": 1.051,
+      "new_files": [
+        "real_sample_processed.tiff"
+      ],
+      "output": "D:\\work\\phantast-py-stem-cell-confluency\\.sisyphus\\evidence\\task-9\\runtime_data\\real_sample_processed.tiff",
+      "output_exists": true,
+      "status_text": "Processing complete"
+    },
+    {
+      "mode": "single",
+      "input": "D:\\work\\phantast-py-stem-cell-confluency\\.sisyphus\\evidence\\task-9\\runtime_data\\real_large_derived.png",
+      "elapsed_sec": 17.175,
+      "new_files": [
+        "real_large_derived_processed.png"
+      ],
+      "output": "D:\\work\\phantast-py-stem-cell-confluency\\.sisyphus\\evidence\\task-9\\runtime_data\\real_large_derived_processed.png",
+      "output_exists": true,
+      "status_text": "Processing complete"
+    },
+    {
+      "mode": "folder",
+      "folder": "D:\\work\\phantast-py-stem-cell-confluency\\.sisyphus\\evidence\\task-9\\runtime_data",
+      "selected_input": "real_sample.jpg",
+      "elapsed_sec": 0.786,
+      "output_filename": "real_sample_processed_1.jpg",
+      "output_in_model_files": true,
+      "file_list_grew": true
+    },
+    {
+      "mode": "single",
+      "scenario": "rapid_start",
+      "input": "D:\\work\\phantast-py-stem-cell-confluency\\.sisyphus\\evidence\\task-9\\runtime_data\\real_sample.jpg",
+      "elapsed_sec": 0.768,
+      "new_output_count": 1,
+      "executor_running_after": false
+    }
+  ]
+}
