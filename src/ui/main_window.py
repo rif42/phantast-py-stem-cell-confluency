@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
     QProgressBar,
     QMessageBox,
     QStatusBar,
+    QDialog,
 )
 from PyQt6.QtCore import Qt, QObject, QThread, pyqtSignal
 
@@ -32,6 +33,7 @@ from src.models.pipeline_model import Pipeline, PipelineNode
 # Views
 from src.ui.pipeline_stack_widget import PipelineStackWidget
 from src.ui.image_canvas import ImageCanvas
+from src.ui.comparison_controls import ComparisonControls
 from src.ui.unified_right_panel import UnifiedRightPanel
 
 # Controllers
@@ -50,6 +52,7 @@ class PipelineExecutor(QObject):
     started = pyqtSignal()
     progress = pyqtSignal(str, int)
     step_completed = pyqtSignal(str, object)
+    mask_saved = pyqtSignal(str, str)
     finished = pyqtSignal(str)
     error = pyqtSignal(str)
     execute_requested = pyqtSignal(str, str, object, object)
@@ -87,22 +90,15 @@ class PipelineExecutor(QObject):
         # Marshal worker input via a signal so `process_pipeline` runs on the worker thread.
         self.execute_requested.connect(worker.process_pipeline)
 
-        worker.started.connect(
-            self.started.emit, type=Qt.ConnectionType.QueuedConnection
-        )
-        worker.progress.connect(
-            self.progress.emit, type=Qt.ConnectionType.QueuedConnection
-        )
-        worker.step_completed.connect(
-            self.step_completed.emit, type=Qt.ConnectionType.QueuedConnection
-        )
-        worker.finished.connect(
-            self.finished.emit, type=Qt.ConnectionType.QueuedConnection
-        )
-        worker.error.connect(self.error.emit, type=Qt.ConnectionType.QueuedConnection)
+        worker.started.connect(self.started.emit)
+        worker.progress.connect(self.progress.emit)
+        worker.step_completed.connect(self.step_completed.emit)
+        worker.mask_saved.connect(self.mask_saved.emit)
+        worker.finished.connect(self.finished.emit)
+        worker.error.connect(self.error.emit)
 
-        worker.finished.connect(self._finalize, type=Qt.ConnectionType.QueuedConnection)
-        worker.error.connect(self._finalize, type=Qt.ConnectionType.QueuedConnection)
+        worker.finished.connect(self._finalize)
+        worker.error.connect(self._finalize)
 
         self._thread.start()
         return True
@@ -118,6 +114,33 @@ class PipelineExecutor(QObject):
         if self._worker is not None:
             self._worker.deleteLater()
             self._worker = None
+
+
+class ProcessingDialog(QDialog):
+    """Modal dialog shown during pipeline processing."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        self.setWindowTitle("Processing")
+        self.setModal(True)
+        self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.FramelessWindowHint)
+        self.setFixedSize(300, 150)
+
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.spinner_label = QLabel("🔬", parent=self)
+        self.spinner_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.spinner_label.setStyleSheet("font-size: 48px;")
+        layout.addWidget(self.spinner_label)
+
+        self.text_label = QLabel("Processing...", parent=self)
+        self.text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.text_label.setStyleSheet("font-size: 16px; color: #E8EAED;")
+        layout.addWidget(self.text_label)
+
+        if parent is not None:
+            self.move(parent.frameGeometry().center() - self.rect().center())
 
 
 class MainWindow(QMainWindow):
@@ -136,6 +159,10 @@ class MainWindow(QMainWindow):
         # State
         self.current_image_path = None
         self.available_nodes = []
+        self._original_image_path: Optional[str] = None
+        self._processed_image_path: Optional[str] = None
+        self._mask_image_path: Optional[str] = None
+        self.processing_dialog: Optional[ProcessingDialog] = None
 
         # Core Container
         self.main_container = QWidget(parent=self)
@@ -260,9 +287,9 @@ class MainWindow(QMainWindow):
 
         # === CENTER PANEL: Image Canvas with Toolbar ===
         self.canvas_container = QWidget(parent=self.splitter)
-        canvas_layout = QVBoxLayout(self.canvas_container)
-        canvas_layout.setContentsMargins(0, 0, 0, 0)
-        canvas_layout.setSpacing(0)
+        self.center_layout = QVBoxLayout(self.canvas_container)
+        self.center_layout.setContentsMargins(0, 0, 0, 0)
+        self.center_layout.setSpacing(0)
 
         # Floating toolbar
         toolbar_container = QWidget(parent=self.canvas_container)
@@ -304,7 +331,7 @@ class MainWindow(QMainWindow):
         toolbar_layout.addWidget(toolbar)
         toolbar_layout.addStretch()
 
-        canvas_layout.addWidget(toolbar_container)
+        self.center_layout.addWidget(toolbar_container)
 
         # Image canvas
         self.image_canvas = ImageCanvas(parent=self.canvas_container)
@@ -312,7 +339,15 @@ class MainWindow(QMainWindow):
         self.image_canvas.zoom_changed.connect(
             lambda pct: self.lbl_zoom.setText(f"{pct}%")
         )
-        canvas_layout.addWidget(self.image_canvas)
+        self.center_layout.addWidget(self.image_canvas)
+
+        self.comparison_controls = ComparisonControls(parent=self.canvas_container)
+        self.comparison_controls.hide()
+        self.comparison_controls.view_mode_changed.connect(self._on_view_mode_changed)
+        self.comparison_controls.mask_visibility_changed.connect(
+            self._on_mask_visibility_changed
+        )
+        self.center_layout.addWidget(self.comparison_controls)
 
         # Empty state overlay (shown when no image)
         self.empty_overlay = QWidget(parent=self.canvas_container)
@@ -371,7 +406,7 @@ class MainWindow(QMainWindow):
         overlay_layout.addWidget(
             dashed_container, stretch=0, alignment=Qt.AlignmentFlag.AlignCenter
         )
-        canvas_layout.addWidget(self.empty_overlay, stretch=1)
+        self.center_layout.addWidget(self.empty_overlay, stretch=1)
         self.empty_overlay.raise_()  # Keep on top
 
         self.splitter.addWidget(self.canvas_container)
@@ -419,6 +454,7 @@ class MainWindow(QMainWindow):
         self.pipeline_executor.started.connect(self._handle_pipeline_started)
         self.pipeline_executor.progress.connect(self._handle_pipeline_progress)
         self.pipeline_executor.step_completed.connect(self._handle_step_completed)
+        self.pipeline_executor.mask_saved.connect(self._on_mask_saved)
         self.pipeline_executor.finished.connect(self._handle_pipeline_finished)
         self.pipeline_executor.error.connect(self._handle_pipeline_error)
 
@@ -515,6 +551,20 @@ class MainWindow(QMainWindow):
 
     def handle_add_step(self, step_type):
         """Add a new pipeline step."""
+        if str(step_type).lower() == "phantast":
+            existing_phantast = [
+                node
+                for node in self.pipeline_controller.pipeline.nodes
+                if str(node.type).lower() == "phantast"
+            ]
+            if existing_phantast:
+                QMessageBox.warning(
+                    self,
+                    "Cannot Add Step",
+                    "Only one PHANTAST node is allowed.",
+                )
+                return
+
         # Create a new node
         import uuid
 
@@ -641,6 +691,8 @@ class MainWindow(QMainWindow):
 
     def _handle_pipeline_started(self):
         """Handle worker started signal in the main thread."""
+        self._show_processing_dialog()
+
         # Cursor already set in handle_run_pipeline, just update status
         self.status_label.setText("Processing started...")
         self.status_progress.setValue(0)
@@ -657,6 +709,8 @@ class MainWindow(QMainWindow):
 
     def _handle_pipeline_finished(self, output_path: str):
         """Apply successful pipeline output and restore UI state."""
+        self._close_processing_dialog()
+
         output_filename = os.path.basename(output_path)
         self.image_model.active_image = {
             "filename": output_filename,
@@ -679,7 +733,13 @@ class MainWindow(QMainWindow):
             self.image_model.files = []
 
         self.current_image_path = output_path
+        self._processed_image_path = output_path
         self.image_canvas.load_image(output_path)
+
+        if self._mask_image_path:
+            self.image_canvas.set_overlay_image(self._mask_image_path)
+        self.comparison_controls.show()
+        self.comparison_controls.set_view_mode("processed")
 
         metadata = self._get_current_metadata()
         if metadata:
@@ -692,6 +752,8 @@ class MainWindow(QMainWindow):
 
     def _handle_pipeline_error(self, error_message: str):
         """Handle worker errors and restore UI state."""
+        self._close_processing_dialog()
+
         logger.error("Pipeline execution failed: %s", error_message)
         self.status_label.setText("Processing failed")
         self._set_processing_state(False)
@@ -732,6 +794,52 @@ class MainWindow(QMainWindow):
     def _show_error_dialog(self, message: str):
         """Show error details for failed pipeline execution."""
         QMessageBox.critical(self, "Pipeline Error", message)
+
+    def _show_processing_dialog(self):
+        """Show modal processing dialog."""
+        if self.processing_dialog is not None:
+            self.processing_dialog.close()
+            self.processing_dialog.deleteLater()
+        self.processing_dialog = ProcessingDialog(parent=self)
+        self.processing_dialog.show()
+
+    def _close_processing_dialog(self):
+        """Close and clean up processing dialog if open."""
+        if self.processing_dialog is not None:
+            self.processing_dialog.close()
+            self.processing_dialog.deleteLater()
+            self.processing_dialog = None
+
+    def _on_mask_saved(self, _source_path: str, mask_path: str):
+        """Handle mask save completion from worker."""
+        self._mask_image_path = mask_path
+        self.comparison_controls.set_mask_available(True)
+        self._restore_overlay_if_needed()
+
+    def _on_view_mode_changed(self, mode: str):
+        """Handle Original/Processed toggle."""
+        if mode == "original" and self._original_image_path:
+            self.current_image_path = self._original_image_path
+            self.image_canvas.load_image(self._original_image_path)
+            self._restore_overlay_if_needed()
+        elif mode == "processed" and self._processed_image_path:
+            self.current_image_path = self._processed_image_path
+            self.image_canvas.load_image(self._processed_image_path)
+            self._restore_overlay_if_needed()
+
+    def _on_mask_visibility_changed(self, visible: bool):
+        """Handle Show Mask toggle."""
+        if visible and self._mask_image_path:
+            self.image_canvas.set_overlay_image(self._mask_image_path)
+        self.image_canvas.show_overlay(visible)
+
+    def _restore_overlay_if_needed(self):
+        """Restore overlay after base image changes when mask is available."""
+        if not self._mask_image_path:
+            return
+
+        self.image_canvas.set_overlay_image(self._mask_image_path)
+        self.image_canvas.show_overlay(self.comparison_controls.mask_toggle.isChecked())
 
     def _generate_output_path(self, input_path: str) -> str:
         """Generate a non-conflicting processed output path for an input image."""
@@ -829,7 +937,12 @@ class MainWindow(QMainWindow):
 
     def load_image_to_canvas(self, filepath):
         """Load image to canvas (called by ImageNavigationController)."""
+        self._original_image_path = filepath
+        self._processed_image_path = None
+        self._mask_image_path = None
+
         self.current_image_path = filepath
+        self.comparison_controls.reset()
         self.image_canvas.load_image(filepath)
         self._update_empty_state()
 
