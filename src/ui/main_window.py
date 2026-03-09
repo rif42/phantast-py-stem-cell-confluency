@@ -2,8 +2,7 @@
 
 import sys
 import os
-import cv2
-import numpy as np
+from typing import Optional
 
 # Import our custom components
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
@@ -19,8 +18,11 @@ from PyQt6.QtWidgets import (
     QFrame,
     QSplitter,
     QFileDialog,
+    QProgressBar,
+    QMessageBox,
+    QStatusBar,
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, QObject, QThread, pyqtSignal
 
 # Models
 from src.models.image_model import ImageSessionModel
@@ -35,6 +37,74 @@ from src.ui.unified_right_panel import UnifiedRightPanel
 from src.controllers.image_controller import ImageNavigationController
 from src.controllers.pipeline_controller import PipelineController
 from src.core.steps import STEP_REGISTRY
+from src.core.pipeline_worker import PipelineWorker
+
+
+class PipelineExecutor(QObject):
+    """Manage PipelineWorker lifecycle and background thread cleanup."""
+
+    started = pyqtSignal()
+    progress = pyqtSignal(str, int)
+    step_completed = pyqtSignal(str, object)
+    finished = pyqtSignal(str)
+    error = pyqtSignal(str)
+    execute_requested = pyqtSignal(str, str, object, object)
+
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        self._thread = None
+        self._worker = None
+
+    def is_running(self) -> bool:
+        return self._thread is not None and self._thread.isRunning()
+
+    def start(self, input_path: str, output_path: str, nodes, step_registry) -> bool:
+        """Start background pipeline execution.
+
+        Returns:
+            True if execution started, otherwise False.
+        """
+        if self.is_running():
+            return False
+
+        self._thread = QThread(parent=self)
+        self._worker = PipelineWorker()
+        worker = self._worker
+        worker.moveToThread(self._thread)
+
+        self._thread.started.connect(
+            lambda: self.execute_requested.emit(
+                input_path,
+                output_path,
+                list(nodes),
+                step_registry,
+            )
+        )
+        self.execute_requested.connect(worker.process_pipeline)
+
+        worker.started.connect(self.started.emit)
+        worker.progress.connect(self.progress.emit)
+        worker.step_completed.connect(self.step_completed.emit)
+        worker.finished.connect(self.finished.emit)
+        worker.error.connect(self.error.emit)
+
+        worker.finished.connect(self._finalize)
+        worker.error.connect(self._finalize)
+
+        self._thread.start()
+        return True
+
+    def _finalize(self, _payload=None):
+        """Stop and clean up worker thread resources."""
+        if self._thread is not None:
+            self._thread.quit()
+            self._thread.wait(3000)
+            self._thread.deleteLater()
+            self._thread = None
+
+        if self._worker is not None:
+            self._worker.deleteLater()
+            self._worker = None
 
 
 class MainWindow(QMainWindow):
@@ -64,9 +134,28 @@ class MainWindow(QMainWindow):
         self.setup_header()
         self.setup_models()
         self.setup_ui_components()
+        self.setup_status_bar()
         self.setup_controllers()
         self.wire_signals()
         self.apply_styles()
+
+    def setup_status_bar(self):
+        """Create status bar widgets for pipeline processing feedback."""
+        status_bar = self.statusBar()
+        if status_bar is None:
+            status_bar = QStatusBar(parent=self)
+            self.setStatusBar(status_bar)
+        status_bar.setSizeGripEnabled(False)
+
+        self.status_label = QLabel("Ready", parent=status_bar)
+        self.status_progress = QProgressBar(parent=status_bar)
+        self.status_progress.setRange(0, 100)
+        self.status_progress.setValue(0)
+        self.status_progress.setFixedWidth(220)
+        self.status_progress.setVisible(False)
+
+        status_bar.addWidget(self.status_label)
+        status_bar.addPermanentWidget(self.status_progress)
 
     def setup_header(self):
         """Create the top header bar."""
@@ -297,6 +386,9 @@ class MainWindow(QMainWindow):
         # Pipeline controller - manages pipeline operations
         self.pipeline_controller = PipelineController()
 
+        # Pipeline executor - manages async worker/thread lifecycle
+        self.pipeline_executor = PipelineExecutor(parent=self)
+
     def wire_signals(self):
         """Wire up all signal/slot connections."""
         # Image model -> UI updates
@@ -309,6 +401,13 @@ class MainWindow(QMainWindow):
         self.pipeline_stack.node_reordered.connect(self.handle_node_reordered)
         self.pipeline_stack.node_selected.connect(self.handle_node_selected)
         self.pipeline_stack.run_pipeline.connect(self.handle_run_pipeline)
+
+        # Pipeline executor signals -> UI updates
+        self.pipeline_executor.started.connect(self._handle_pipeline_started)
+        self.pipeline_executor.progress.connect(self._handle_pipeline_progress)
+        self.pipeline_executor.step_completed.connect(self._handle_step_completed)
+        self.pipeline_executor.finished.connect(self._handle_pipeline_finished)
+        self.pipeline_executor.error.connect(self._handle_pipeline_error)
 
         # Right panel signals
         self.right_panel.node_param_changed.connect(self.handle_node_param_changed)
@@ -345,7 +444,9 @@ class MainWindow(QMainWindow):
             pipeline_controller is not None
             and len(pipeline_controller.pipeline.nodes) > 0
         )
-        is_enabled = has_image and has_nodes
+        executor = getattr(self, "pipeline_executor", None)
+        is_running = executor is not None and executor.is_running()
+        is_enabled = has_image and has_nodes and not is_running
 
         self.pipeline_stack.run_button.setEnabled(is_enabled)
         if is_enabled:
@@ -488,7 +589,24 @@ class MainWindow(QMainWindow):
 
     def handle_run_pipeline(self):
         """Handle run pipeline button click."""
-        self._execute_pipeline()
+        if not self.current_image_path:
+            return
+
+        if self.pipeline_executor.is_running():
+            return
+
+        input_path = os.path.abspath(self.current_image_path)
+        output_path = self._generate_output_path(input_path)
+        self._set_processing_state(True, "Processing started...", 0)
+
+        started = self.pipeline_executor.start(
+            input_path,
+            output_path,
+            self.pipeline_controller.pipeline.nodes,
+            STEP_REGISTRY,
+        )
+        if not started:
+            self._set_processing_state(False)
 
     def _refresh_pipeline_view(self):
         """Refresh the pipeline stack view from controller."""
@@ -508,109 +626,96 @@ class MainWindow(QMainWindow):
         }
         self.pipeline_stack.set_pipeline(pipeline_data)
 
-    def _execute_pipeline(self):
-        """Execute the pipeline on the current image and update canvas.
+    def _handle_pipeline_started(self):
+        """Handle worker started signal in the main thread."""
+        self._set_processing_state(True, "Processing started...", 0)
 
-        This is called when parameters are applied to refresh the preview.
-        """
-        if not self.current_image_path:
+    def _handle_pipeline_progress(self, step_name: str, percent: int):
+        """Handle pipeline progress updates from worker thread."""
+        readable_name = step_name.replace("_", " ").title()
+        self._set_processing_state(True, f"Processing: {readable_name}...", percent)
+
+    def _handle_step_completed(self, step_name: str, _result_array):
+        """Handle step completion from worker thread."""
+        print(f"Pipeline step completed: {step_name}")
+
+    def _handle_pipeline_finished(self, output_path: str):
+        """Apply successful pipeline output and restore UI state."""
+        output_filename = os.path.basename(output_path)
+        self.image_model.active_image = {
+            "filename": output_filename,
+            "filepath": output_path,
+        }
+
+        if (
+            self.image_model.mode == "FOLDER"
+            and self.image_model.current_folder
+            and os.path.abspath(self.image_model.current_folder)
+            == os.path.abspath(os.path.dirname(output_path))
+        ):
+            if output_filename not in self.image_model.files:
+                self.image_model.files.append(output_filename)
+                self.image_model.files.sort()
+            self.update_file_list(self.image_model.files)
+        else:
+            self.image_model.mode = "SINGLE"
+            self.image_model.current_folder = None
+            self.image_model.files = []
+
+        self.current_image_path = output_path
+        self.image_canvas.load_image(output_path)
+
+        metadata = self._get_current_metadata()
+        if metadata:
+            self.right_panel.show_metadata(metadata)
+
+        self.status_label.setText("Processing complete")
+        self.status_progress.setValue(100)
+        self._set_processing_state(False)
+        self._update_run_button_state()
+
+    def _handle_pipeline_error(self, error_message: str):
+        """Handle worker errors and restore UI state."""
+        print(f"Pipeline execution failed: {error_message}")
+        self.status_label.setText("Processing failed")
+        self._set_processing_state(False)
+        self._update_run_button_state()
+        self.right_panel.show_metadata(
+            {
+                "filename": os.path.basename(self.current_image_path)
+                if self.current_image_path
+                else "-",
+                "subtitle": "Pipeline execution failed",
+                "dimensions": "-",
+                "bitdepth": "-",
+                "channels": "-",
+                "filesize": "-",
+            }
+        )
+        self._show_error_dialog(error_message)
+
+    def _set_processing_state(
+        self, is_processing: bool, message: Optional[str] = None, percent: int = 0
+    ):
+        """Update status bar, cursor, and run button during execution."""
+        if is_processing:
+            self.status_label.setText(message or "Processing started...")
+            self.status_progress.setVisible(True)
+            self.status_progress.setValue(max(0, min(100, percent)))
+            self.pipeline_stack.run_button.setEnabled(False)
+            self.pipeline_stack.run_button.setText("Run Pipeline")
+            self.pipeline_stack.run_button.setToolTip("Pipeline is running")
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
             return
 
-        try:
-            input_path = os.path.abspath(self.current_image_path)
-            image = cv2.imread(input_path, cv2.IMREAD_UNCHANGED)
-            if image is None:
-                raise ValueError(f"Unable to load image: {input_path}")
+        self.status_progress.setVisible(False)
+        self.pipeline_stack.run_button.setText("Run Pipeline")
+        if QApplication.overrideCursor() is not None:
+            QApplication.restoreOverrideCursor()
 
-            output_path = self._generate_output_path(input_path)
-            processed_image = image
-
-            for node in self.pipeline_controller.pipeline.nodes:
-                if not node.enabled:
-                    continue
-
-                if node.type == "input_single_image":
-                    continue
-
-                step = STEP_REGISTRY.get(node.type)
-                if step is None:
-                    raise ValueError(f"Unknown step type: {node.type}")
-
-                processed_image = step.process(
-                    processed_image, **(node.parameters or {})
-                )
-                if processed_image is None:
-                    raise ValueError(f"Step '{node.type}' returned no image")
-
-            if processed_image.dtype == np.bool_:
-                processed_image = processed_image.astype(np.uint8) * 255
-            elif processed_image.dtype != np.uint8:
-                processed_image = np.nan_to_num(processed_image)
-                min_val = float(np.min(processed_image))
-                max_val = float(np.max(processed_image))
-                if max_val > min_val:
-                    processed_image = (
-                        (processed_image - min_val) * (255.0 / (max_val - min_val))
-                    ).astype(np.uint8)
-                else:
-                    processed_image = np.zeros_like(processed_image, dtype=np.uint8)
-
-            if processed_image.ndim == 2:
-                processed_image = cv2.cvtColor(processed_image, cv2.COLOR_GRAY2BGR)
-            elif processed_image.ndim == 3 and processed_image.shape[2] == 1:
-                processed_image = cv2.cvtColor(
-                    processed_image[:, :, 0], cv2.COLOR_GRAY2BGR
-                )
-            elif processed_image.ndim == 3 and processed_image.shape[2] == 4:
-                processed_image = cv2.cvtColor(processed_image, cv2.COLOR_BGRA2BGR)
-            elif processed_image.ndim != 3 or processed_image.shape[2] != 3:
-                raise ValueError(
-                    f"Unsupported processed image shape: {processed_image.shape}"
-                )
-
-            if not cv2.imwrite(output_path, processed_image):
-                raise OSError(f"Failed to save processed image to: {output_path}")
-
-            output_filename = os.path.basename(output_path)
-            self.image_model.active_image = {
-                "filename": output_filename,
-                "filepath": output_path,
-            }
-
-            if (
-                self.image_model.mode == "FOLDER"
-                and self.image_model.current_folder
-                and os.path.abspath(self.image_model.current_folder)
-                == os.path.abspath(os.path.dirname(output_path))
-            ):
-                if output_filename not in self.image_model.files:
-                    self.image_model.files.append(output_filename)
-                    self.image_model.files.sort()
-                self.update_file_list(self.image_model.files)
-            else:
-                self.image_model.mode = "SINGLE"
-                self.image_model.current_folder = None
-                self.image_model.files = []
-
-            self.current_image_path = output_path
-            self.image_canvas.load_image(output_path)
-
-            metadata = self._get_current_metadata()
-            if metadata:
-                self.right_panel.show_metadata(metadata)
-
-        except Exception as exc:
-            print(f"Pipeline execution failed: {exc}")
-            self.right_panel.show_metadata(
-                {
-                    "filename": os.path.basename(self.current_image_path),
-                    "subtitle": "Pipeline execution failed",
-                    "dimensions": "-",
-                    "bitdepth": "-",
-                    "channels": "-",
-                    "filesize": "-",
-                }
-            )
+    def _show_error_dialog(self, message: str):
+        """Show error details for failed pipeline execution."""
+        QMessageBox.critical(self, "Pipeline Error", message)
 
     def _generate_output_path(self, input_path: str) -> str:
         """Generate a non-conflicting processed output path for an input image."""
