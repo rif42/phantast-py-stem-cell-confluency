@@ -5,7 +5,7 @@ Each step can be registered and later discovered by the pipeline system.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union, overload
 import numpy as np
 
 
@@ -50,19 +50,35 @@ class StepMetadata:
     description: str
     icon: str
     parameters: List[StepParameter]
-    process: Callable[[np.ndarray, ...], np.ndarray]
+    process: Callable[..., np.ndarray]
 
 
 # Global registry of processing steps
 STEP_REGISTRY: Dict[str, StepMetadata] = {}
 
 
+@overload
+def register_step(func: Callable[..., np.ndarray]) -> Callable[..., np.ndarray]: ...
+
+
+@overload
 def register_step(
     name: Optional[str] = None,
     description: Optional[str] = None,
     icon: Optional[str] = None,
     parameters: Optional[List[StepParameter]] = None,
-) -> Callable:
+) -> Callable[[Callable[..., np.ndarray]], Callable[..., np.ndarray]]: ...
+
+
+def register_step(
+    name: Optional[Union[str, Callable[..., np.ndarray]]] = None,
+    description: Optional[str] = None,
+    icon: Optional[str] = None,
+    parameters: Optional[List[StepParameter]] = None,
+) -> Union[
+    Callable[..., np.ndarray],
+    Callable[[Callable[..., np.ndarray]], Callable[..., np.ndarray]],
+]:
     """Decorator to register a processing step.
 
     Can be used in two ways:
@@ -91,7 +107,7 @@ def register_step(
             return image
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., np.ndarray]) -> Callable[..., np.ndarray]:
         # Get metadata from module globals or explicit arguments
         import inspect
 
@@ -117,8 +133,8 @@ def register_step(
         STEP_REGISTRY[step_name] = metadata
 
         # Mark function as registered
-        func._step_metadata = metadata
-        func._step_name = step_name
+        setattr(func, "_step_metadata", metadata)
+        setattr(func, "_step_name", step_name)
 
         return func
 
@@ -126,7 +142,7 @@ def register_step(
     if callable(name):
         # Used as @register_step without parentheses
         func = name
-        name = None
+        name = None  # type: ignore[assignment]
         return decorator(func)
 
     return decorator
@@ -160,7 +176,7 @@ def clear_registry():
 
 # Auto-import steps to register them in STEP_REGISTRY
 try:
-    from . import clahe_step, grayscale_step, crop_step
+    from . import clahe_step, grayscale_step, crop_step, phantast_step
 except ImportError:
     pass  # Steps may not be available in all environments
 

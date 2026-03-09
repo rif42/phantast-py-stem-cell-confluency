@@ -430,6 +430,10 @@ class PipelineStackWidget(QFrame):
                 border_color = "#E8A317"  # orange for output
                 if is_selected:
                     border_color = "#FCD34D"
+            elif ntype == "phantast":
+                border_color = "#FFD700"  # gold for PHANTAST (special node)
+                if is_selected:
+                    border_color = "#FFE55C"
 
             node_widget.setStyleSheet(f"""
                 #nodeCard, #nodeCardSelected {{

@@ -16,7 +16,7 @@ STEP_ICON = "⚙️"
 
 STEP_PARAMETERS = [
     StepParameter(
-        name="epsilon",
+        name="clip_limit",
         type="float",
         default=2.0,
         min=0.1,
@@ -25,24 +25,27 @@ STEP_PARAMETERS = [
         description="CLAHE clip limit - threshold for contrast limiting (higher = more contrast enhancement)",
     ),
     StepParameter(
-        name="sigma",
-        type="float",
-        default=8.0,
-        min=2.0,
-        max=32.0,
-        step=1.0,
-        description="Tile grid size for histogram equalization (sigma x sigma)",
+        name="block_size",
+        type="int",
+        default=8,
+        min=2,
+        max=32,
+        step=1,
+        description="Tile grid size for histogram equalization (block_size x block_size)",
     ),
 ]
 
 
-def process(image: np.ndarray, epsilon: float = 2.0, sigma: float = 8.0) -> np.ndarray:
+@register_step
+def process(
+    image: np.ndarray, clip_limit: float = 2.0, block_size: int = 8
+) -> np.ndarray:
     """Apply CLAHE to the input image.
 
     Args:
         image: Input image as numpy array (grayscale)
-        epsilon: CLAHE clip limit - threshold for contrast limiting (default 2.0)
-        sigma: Tile grid size for histogram equalization (default 8.0)
+        clip_limit: CLAHE clip limit - threshold for contrast limiting (default 2.0)
+        block_size: Tile grid size for histogram equalization (default 8)
 
     Returns:
         Processed image with CLAHE applied
@@ -67,18 +70,17 @@ def process(image: np.ndarray, epsilon: float = 2.0, sigma: float = 8.0) -> np.n
 
     # Ensure uint8
     if gray.dtype != np.uint8:
-        gray = cv2.normalize(gray, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+        normalized = np.empty_like(gray, dtype=np.uint8)
+        cv2.normalize(gray, normalized, 0, 255, cv2.NORM_MINMAX)
+        gray = normalized
 
     # Create CLAHE object
     clahe = cv2.createCLAHE(
-        clipLimit=float(epsilon), tileGridSize=(int(sigma), int(sigma))
+        clipLimit=float(clip_limit),
+        tileGridSize=(int(block_size), int(block_size)),
     )
 
     # Apply CLAHE
     result = clahe.apply(gray)
 
     return result
-
-
-# Register the step
-process = register_step(process)

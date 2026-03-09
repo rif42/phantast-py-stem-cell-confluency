@@ -361,6 +361,8 @@ class UnifiedRightPanel(QFrame):
         self._param_widgets.clear()
         while self.params_layout.count():
             item = self.params_layout.takeAt(0)
+            if item is None:
+                continue
             widget = item.widget()
             if widget is not None:
                 widget.deleteLater()
@@ -410,26 +412,7 @@ class UnifiedRightPanel(QFrame):
                     p, val, d
                 )
             )
-            spinbox.setStyleSheet("""
-                QDoubleSpinBox {
-                    background-color: #121415;
-                    border: 1px solid #2D3336;
-                    border-radius: 4px;
-                    padding: 8px;
-                    color: #E8EAED;
-                }
-                QDoubleSpinBox:focus {
-                    border: 1px solid #00B884;
-                }
-                QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
-                    border: none;
-                    background: #2D3336;
-                    width: 20px;
-                }
-                QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {
-                    background: #3D4448;
-                }
-            """)
+            spinbox.setStyleSheet(self._spinbox_style("QDoubleSpinBox", is_valid=True))
             layout.addWidget(spinbox)
             input_widget = spinbox
         elif param_type == "int":
@@ -447,18 +430,7 @@ class UnifiedRightPanel(QFrame):
                     p, val, d
                 )
             )
-            spinbox.setStyleSheet("""
-                QSpinBox {
-                    background-color: #121415;
-                    border: 1px solid #2D3336;
-                    border-radius: 4px;
-                    padding: 8px;
-                    color: #E8EAED;
-                }
-                QSpinBox:focus {
-                    border: 1px solid #00B884;
-                }
-            """)
+            spinbox.setStyleSheet(self._spinbox_style("QSpinBox", is_valid=True))
             layout.addWidget(spinbox)
             input_widget = spinbox
         else:
@@ -563,6 +535,51 @@ class UnifiedRightPanel(QFrame):
         except (ValueError, TypeError):
             return False
 
+    def _spinbox_style(self, selector: str, is_valid: bool = True) -> str:
+        """Return consistent spinbox styling with visible up/down arrow icons."""
+        border = "1px solid #2D3336" if is_valid else "2px solid #FF5252"
+        focus_border = "1px solid #00B884" if is_valid else "2px solid #FF5252"
+
+        return f"""
+            {selector} {{
+                background-color: #121415;
+                border: {border};
+                border-radius: 4px;
+                padding: 8px;
+                color: #E8EAED;
+            }}
+            {selector}:focus {{
+                border: {focus_border};
+            }}
+            {selector}::up-button,
+            {selector}::down-button {{
+                subcontrol-origin: border;
+                width: 22px;
+                border-left: 1px solid #2D3336;
+                background: #2D3336;
+            }}
+            {selector}::up-button:hover,
+            {selector}::down-button:hover {{
+                background: #3D4448;
+            }}
+            {selector}::up-arrow {{
+                image: none;
+                width: 0px;
+                height: 0px;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-bottom: 7px solid #C9D1D9;
+            }}
+            {selector}::down-arrow {{
+                image: none;
+                width: 0px;
+                height: 0px;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 7px solid #C9D1D9;
+            }}
+        """
+
     def _update_validation_feedback(self, param_name, is_valid):
         """Update visual feedback for a parameter's validation state.
 
@@ -581,75 +598,23 @@ class UnifiedRightPanel(QFrame):
         if is_valid:
             # Valid: normal styling
             if param_type == "float":
-                input_widget.setStyleSheet("""
-                    QDoubleSpinBox {
-                        background-color: #121415;
-                        border: 1px solid #2D3336;
-                        border-radius: 4px;
-                        padding: 8px;
-                        color: #E8EAED;
-                    }
-                    QDoubleSpinBox:focus {
-                        border: 1px solid #00B884;
-                    }
-                    QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
-                        border: none;
-                        background: #2D3336;
-                        width: 20px;
-                    }
-                    QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {
-                        background: #3D4448;
-                    }
-                """)
+                input_widget.setStyleSheet(
+                    self._spinbox_style("QDoubleSpinBox", is_valid=True)
+                )
             elif param_type == "int":
-                input_widget.setStyleSheet("""
-                    QSpinBox {
-                        background-color: #121415;
-                        border: 1px solid #2D3336;
-                        border-radius: 4px;
-                        padding: 8px;
-                        color: #E8EAED;
-                    }
-                    QSpinBox:focus {
-                        border: 1px solid #00B884;
-                    }
-                """)
+                input_widget.setStyleSheet(
+                    self._spinbox_style("QSpinBox", is_valid=True)
+                )
         else:
             # Invalid: red border
             if param_type == "float":
-                input_widget.setStyleSheet("""
-                    QDoubleSpinBox {
-                        background-color: #121415;
-                        border: 2px solid #FF5252;
-                        border-radius: 4px;
-                        padding: 8px;
-                        color: #E8EAED;
-                    }
-                    QDoubleSpinBox:focus {
-                        border: 2px solid #FF5252;
-                    }
-                    QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
-                        border: none;
-                        background: #2D3336;
-                        width: 20px;
-                    }
-                    QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {
-                        background: #3D4448;
-                    }
-                """)
+                input_widget.setStyleSheet(
+                    self._spinbox_style("QDoubleSpinBox", is_valid=False)
+                )
             elif param_type == "int":
-                input_widget.setStyleSheet("""
-                    QSpinBox {
-                        background-color: #121415;
-                        border: 2px solid #FF5252;
-                        border-radius: 4px;
-                        padding: 8px;
-                        color: #E8EAED;
-                    }
-                    QSpinBox:focus {
-                        border: 2px solid #FF5252;
-                    }
-                """)
+                input_widget.setStyleSheet(
+                    self._spinbox_style("QSpinBox", is_valid=False)
+                )
 
     def get_current_page(self):
         """Get current page name."""
