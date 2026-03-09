@@ -2,6 +2,8 @@
 
 import sys
 import os
+import cv2
+import numpy as np
 
 # Import our custom components
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
@@ -32,6 +34,7 @@ from src.ui.unified_right_panel import UnifiedRightPanel
 # Controllers
 from src.controllers.image_controller import ImageNavigationController
 from src.controllers.pipeline_controller import PipelineController
+from src.core.steps import STEP_REGISTRY
 
 
 class MainWindow(QMainWindow):
@@ -513,16 +516,101 @@ class MainWindow(QMainWindow):
         if not self.current_image_path:
             return
 
-        # TODO: Implement full pipeline execution
-        # For now, just reload the original image to canvas
-        # In a full implementation, this would:
-        # 1. Load the image
-        # 2. Run through pipeline nodes
-        # 3. Update canvas with processed result
-        self.image_canvas.load_image(self.current_image_path)
+        try:
+            input_path = os.path.abspath(self.current_image_path)
+            image = cv2.imread(input_path, cv2.IMREAD_UNCHANGED)
+            if image is None:
+                raise ValueError(f"Unable to load image: {input_path}")
 
-        # Emit signal for any listeners
-        # self.pipeline_executed.emit()
+            output_path = self._generate_output_path(input_path)
+            processed_image = image
+
+            for node in self.pipeline_controller.pipeline.nodes:
+                if not node.enabled:
+                    continue
+
+                if node.type == "input_single_image":
+                    continue
+
+                step = STEP_REGISTRY.get(node.type)
+                if step is None:
+                    raise ValueError(f"Unknown step type: {node.type}")
+
+                processed_image = step.process(
+                    processed_image, **(node.parameters or {})
+                )
+                if processed_image is None:
+                    raise ValueError(f"Step '{node.type}' returned no image")
+
+            if processed_image.dtype == np.bool_:
+                processed_image = processed_image.astype(np.uint8) * 255
+            elif processed_image.dtype != np.uint8:
+                processed_image = np.nan_to_num(processed_image)
+                min_val = float(np.min(processed_image))
+                max_val = float(np.max(processed_image))
+                if max_val > min_val:
+                    processed_image = (
+                        (processed_image - min_val) * (255.0 / (max_val - min_val))
+                    ).astype(np.uint8)
+                else:
+                    processed_image = np.zeros_like(processed_image, dtype=np.uint8)
+
+            if processed_image.ndim == 2:
+                processed_image = cv2.cvtColor(processed_image, cv2.COLOR_GRAY2BGR)
+            elif processed_image.ndim == 3 and processed_image.shape[2] == 1:
+                processed_image = cv2.cvtColor(
+                    processed_image[:, :, 0], cv2.COLOR_GRAY2BGR
+                )
+            elif processed_image.ndim == 3 and processed_image.shape[2] == 4:
+                processed_image = cv2.cvtColor(processed_image, cv2.COLOR_BGRA2BGR)
+            elif processed_image.ndim != 3 or processed_image.shape[2] != 3:
+                raise ValueError(
+                    f"Unsupported processed image shape: {processed_image.shape}"
+                )
+
+            if not cv2.imwrite(output_path, processed_image):
+                raise OSError(f"Failed to save processed image to: {output_path}")
+
+            output_filename = os.path.basename(output_path)
+            self.image_model.active_image = {
+                "filename": output_filename,
+                "filepath": output_path,
+            }
+
+            if (
+                self.image_model.mode == "FOLDER"
+                and self.image_model.current_folder
+                and os.path.abspath(self.image_model.current_folder)
+                == os.path.abspath(os.path.dirname(output_path))
+            ):
+                if output_filename not in self.image_model.files:
+                    self.image_model.files.append(output_filename)
+                    self.image_model.files.sort()
+                self.update_file_list(self.image_model.files)
+            else:
+                self.image_model.mode = "SINGLE"
+                self.image_model.current_folder = None
+                self.image_model.files = []
+
+            self.current_image_path = output_path
+            self.image_canvas.load_image(output_path)
+
+            metadata = self._get_current_metadata()
+            if metadata:
+                self.right_panel.show_metadata(metadata)
+
+        except Exception as exc:
+            print(f"Pipeline execution failed: {exc}")
+            self.right_panel.show_metadata(
+                {
+                    "filename": os.path.basename(self.current_image_path),
+                    "subtitle": "Pipeline execution failed",
+                    "dimensions": "-",
+                    "bitdepth": "-",
+                    "channels": "-",
+                    "filesize": "-",
+                }
+            )
 
     def _generate_output_path(self, input_path: str) -> str:
         """Generate a non-conflicting processed output path for an input image."""
