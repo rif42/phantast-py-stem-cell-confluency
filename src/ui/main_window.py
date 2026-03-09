@@ -17,11 +17,8 @@ from PyQt6.QtWidgets import (
     QFrame,
     QSplitter,
     QFileDialog,
-    QListWidget,
-    QListWidgetItem,
 )
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor
 
 # Models
 from src.models.image_model import ImageSessionModel
@@ -307,8 +304,8 @@ class MainWindow(QMainWindow):
         self.pipeline_stack.toggle_node.connect(self.handle_toggle_node)
         self.pipeline_stack.delete_node.connect(self.handle_delete_node)
         self.pipeline_stack.node_reordered.connect(self.handle_node_reordered)
-        self.pipeline_stack.run_pipeline.connect(self.handle_run_pipeline)
         self.pipeline_stack.node_selected.connect(self.handle_node_selected)
+        self.pipeline_stack.run_pipeline.connect(self.handle_run_pipeline)
 
         # Right panel signals
         self.right_panel.node_param_changed.connect(self.handle_node_param_changed)
@@ -331,9 +328,29 @@ class MainWindow(QMainWindow):
             else:
                 self.pipeline_stack.add_button.setToolTip("Load an image first")
 
+        self._update_run_button_state()
+
         # Update right panel
         if not has_image:
             self.right_panel.clear()
+
+    def _update_run_button_state(self):
+        """Enable run button only when image and pipeline steps are available."""
+        has_image = self.current_image_path is not None
+        pipeline_controller = getattr(self, "pipeline_controller", None)
+        has_nodes = (
+            pipeline_controller is not None
+            and len(pipeline_controller.pipeline.nodes) > 0
+        )
+        is_enabled = has_image and has_nodes
+
+        self.pipeline_stack.run_button.setEnabled(is_enabled)
+        if is_enabled:
+            self.pipeline_stack.run_button.setToolTip("")
+        else:
+            self.pipeline_stack.run_button.setToolTip(
+                "Load an image and add processing steps"
+            )
 
     # === Image Navigation Handlers ===
 
@@ -398,6 +415,7 @@ class MainWindow(QMainWindow):
 
         # Update the pipeline stack view
         self._refresh_pipeline_view()
+        self._update_run_button_state()
 
     def _create_single_image_node(self, file_path: str):
         """Create a single image input node in the pipeline.
@@ -434,6 +452,7 @@ class MainWindow(QMainWindow):
 
         # Update the pipeline stack view
         self._refresh_pipeline_view()
+        self._update_run_button_state()
 
     def handle_toggle_node(self, node_id, enabled):
         """Toggle node enabled state."""
@@ -443,6 +462,7 @@ class MainWindow(QMainWindow):
         """Delete a node."""
         self.pipeline_controller.remove_node(node_id)
         self._refresh_pipeline_view()
+        self._update_run_button_state()
 
         # If we deleted the selected node, show metadata
         self.right_panel.show_metadata(self._get_current_metadata())
@@ -504,6 +524,33 @@ class MainWindow(QMainWindow):
         # Emit signal for any listeners
         # self.pipeline_executed.emit()
 
+    def _generate_output_path(self, input_path: str) -> str:
+        """Generate a non-conflicting processed output path for an input image."""
+        abs_input_path = os.path.abspath(input_path)
+        directory = os.path.dirname(abs_input_path)
+
+        filename = os.path.basename(abs_input_path)
+        name, ext = os.path.splitext(filename)
+        if not ext:
+            ext = ".png"
+
+        base_name = name if name.endswith("_processed") else f"{name}_processed"
+        counter = 1 if name.endswith("_processed") else 0
+
+        candidate_name = base_name if counter == 0 else f"{base_name}_{counter}"
+        candidate_path = os.path.abspath(
+            os.path.join(directory, f"{candidate_name}{ext}")
+        )
+
+        while os.path.exists(candidate_path):
+            counter = 1 if counter == 0 else counter + 1
+            candidate_name = f"{base_name}_{counter}"
+            candidate_path = os.path.abspath(
+                os.path.join(directory, f"{candidate_name}{ext}")
+            )
+
+        return candidate_path
+
     def _get_current_metadata(self):
         """Get metadata for currently loaded image."""
         if not self.current_image_path:
@@ -543,7 +590,7 @@ class MainWindow(QMainWindow):
                     return f"{size_bytes:.1f} {unit}"
                 size_bytes /= 1024.0
             return f"{size_bytes:.1f} TB"
-        except:
+        except OSError:
             return "-"
 
     # === Public Methods for Controller ===
