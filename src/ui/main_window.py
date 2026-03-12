@@ -29,6 +29,7 @@ from PyQt6.QtCore import Qt, QObject, QThread, QTimer, pyqtSignal
 # Models
 from src.models.image_model import ImageSessionModel
 from src.models.pipeline_model import Pipeline, PipelineNode
+from src.models.settings_manager import get_node_parameters
 
 # Views
 from src.ui.pipeline_stack_widget import PipelineStackWidget
@@ -702,6 +703,12 @@ class MainWindow(QMainWindow):
         # Create a new node
         import uuid
 
+        # Load saved parameters for CLAHE and PHANTAST nodes
+        step_type_lower = str(step_type).lower()
+        saved_params = {}
+        if step_type_lower in ("clahe", "phantast"):
+            saved_params = get_node_parameters(step_type_lower)
+
         node = PipelineNode(
             id=str(uuid.uuid4()),
             type=step_type,
@@ -710,7 +717,7 @@ class MainWindow(QMainWindow):
             icon="⚙️",
             status="idle",
             enabled=True,
-            parameters={},
+            parameters=saved_params.copy(),
         )
         self.pipeline_controller.add_node(node)
 
@@ -1315,6 +1322,23 @@ class MainWindow(QMainWindow):
             }
             #primaryButton:hover {
                 background-color: #00D69A;
+            }
+            #runBtn {
+                background-color: #00B884;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 14px 24px;
+                font-size: 15px;
+                font-weight: 700;
+            }
+            #runBtn:hover {
+                background-color: #00D69A;
+            }
+            #runBtn:disabled {
+                background-color: #121415;
+                color: #5F6368;
+                border: 1px solid #2D3336;
             }
             #floatingToolbar {
                 background-color: #1E2224;

@@ -1,6 +1,10 @@
 """Unified Right Panel - Dynamic switching between image metadata and node properties."""
 
 import os
+import sys
+
+# Add parent directory to path for imports
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
 from PyQt6.QtWidgets import (
     QWidget,
@@ -18,6 +22,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 
+from src.models.settings_manager import save_node_parameter
+
 
 class UnifiedRightPanel(QFrame):
     """Right panel that switches between image metadata and node properties."""
@@ -33,6 +39,7 @@ class UnifiedRightPanel(QFrame):
         self.setObjectName("rightPanel")
 
         self.current_node_id = None
+        self.current_node_type = None
         self.current_node_params = {}
         self.current_files = []  # Store current file list for refresh
         self._param_widgets = {}  # Map param_name -> widget for validation feedback
@@ -322,6 +329,7 @@ class UnifiedRightPanel(QFrame):
             available_nodes: List of available node definitions for parameter schema
         """
         self.current_node_id = node_data.get("id")
+        self.current_node_type = node_data.get("type", "")
         self.current_node_params = node_data.get("parameters", {})
 
         # Update title
@@ -496,6 +504,12 @@ class UnifiedRightPanel(QFrame):
         if is_valid:
             self.current_node_params[param_name] = value
             self.node_param_changed.emit(self.current_node_id, param_name, value)
+
+            # Persist parameter for CLAHE and PHANTAST nodes
+            if self.current_node_type:
+                node_type_lower = self.current_node_type.lower()
+                if node_type_lower in ("clahe", "phantast"):
+                    save_node_parameter(node_type_lower, param_name, value)
 
     def _validate_parameter(self, value, param_def):
         """Validate a parameter value against its definition.

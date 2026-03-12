@@ -57,11 +57,9 @@ class ImageCanvas(QGraphicsView):
         self.clear_overlay()
         self.graphics_scene.setSceneRect(self.pixmap_item.boundingRect())
 
-        # Center and fit the image initially
-        self.fitInView(
-            self.graphics_scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio
-        )
-        self.current_scale = self.transform().m11()
+        # Reset to 100% zoom (1.0 scale) instead of fitting to view
+        self.resetTransform()
+        self.current_scale = 1.0
         self.zoom_changed.emit(self.get_current_zoom_percentage())
         return True
 
