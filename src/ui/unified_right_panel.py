@@ -1,5 +1,7 @@
 """Unified Right Panel - Dynamic switching between image metadata and node properties."""
 
+import os
+
 from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -626,10 +628,18 @@ class UnifiedRightPanel(QFrame):
         Args:
             files: List of file paths to display
         """
-        self.current_files = files
+        # Filter out generated artifacts (processed and mask files)
+        filtered_files = [
+            f
+            for f in files
+            if "_processed" not in os.path.basename(f).lower()
+            and "_mask" not in os.path.basename(f).lower()
+        ]
+
+        self.current_files = filtered_files
         self.file_list.clear()
 
-        if not files:
+        if not filtered_files:
             self.file_list.hide()
             self.empty_label.show()
             self.refresh_btn.setEnabled(False)
@@ -639,9 +649,7 @@ class UnifiedRightPanel(QFrame):
         self.file_list.show()
         self.refresh_btn.setEnabled(True)
 
-        for file_path in files:
-            import os
-
+        for file_path in filtered_files:
             filename = os.path.basename(file_path)
             self.file_list.addItem(filename)
 

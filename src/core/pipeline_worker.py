@@ -60,7 +60,8 @@ class PipelineWorker(QObject):
                 node
                 for node in nodes
                 if self._node_enabled(node)
-                and self._node_type(node) != "input_single_image"
+                and self._node_type(node)
+                not in {"input_single_image", "input_image_folder"}
             ]
             processed_image = image
 

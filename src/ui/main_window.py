@@ -24,7 +24,7 @@ from PyQt6.QtWidgets import (
     QStatusBar,
     QDialog,
 )
-from PyQt6.QtCore import Qt, QObject, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QObject, QThread, QTimer, pyqtSignal
 
 # Models
 from src.models.image_model import ImageSessionModel
@@ -162,6 +162,11 @@ class MainWindow(QMainWindow):
         self._original_image_path: Optional[str] = None
         self._processed_image_path: Optional[str] = None
         self._mask_image_path: Optional[str] = None
+        self._batch_input_snapshot: list[str] = []
+        self._batch_queue: list[str] = []
+        self._batch_current_index: int = -1
+        self._batch_success_count: int = 0
+        self._batch_failure_count: int = 0
         self.processing_dialog: Optional[ProcessingDialog] = None
 
         # Core Container
@@ -485,25 +490,97 @@ class MainWindow(QMainWindow):
         if not has_image:
             self.right_panel.clear()
 
+    @staticmethod
+    def _is_generated_artifact_filename(filename: str) -> bool:
+        """Return True when a file name matches generated output artifacts."""
+        lowered = filename.lower()
+        return "_processed" in lowered or "_mask" in lowered
+
+    def _collect_folder_batch_input_snapshot(
+        self, folder_path: Optional[str] = None
+    ) -> list[str]:
+        """Collect deterministic, filtered folder-mode inputs as absolute paths."""
+        selected_folder = folder_path or self.image_model.current_folder
+        if not selected_folder:
+            return []
+
+        absolute_folder = os.path.abspath(selected_folder)
+        if not os.path.isdir(absolute_folder):
+            return []
+
+        valid_extensions = tuple(
+            ext.lower()
+            for ext in getattr(
+                self.image_model,
+                "valid_extensions",
+                (".png", ".jpg", ".jpeg", ".tif", ".tiff"),
+            )
+        )
+
+        snapshot: list[str] = []
+        for filename in sorted(
+            list(self.image_model.files), key=lambda value: str(value).lower()
+        ):
+            if not isinstance(filename, str):
+                continue
+
+            lowered_name = filename.lower()
+            if not lowered_name.endswith(valid_extensions):
+                continue
+            if self._is_generated_artifact_filename(lowered_name):
+                continue
+
+            absolute_path = os.path.abspath(os.path.join(absolute_folder, filename))
+            if os.path.isfile(absolute_path):
+                snapshot.append(absolute_path)
+
+        return list(snapshot)
+
+    @staticmethod
+    def _has_enabled_executable_nodes(nodes) -> bool:
+        """Return True if at least one enabled non-input node exists."""
+        return any(
+            node.enabled
+            and node.type not in {"input_single_image", "input_image_folder"}
+            for node in nodes
+        )
+
     def _update_run_button_state(self):
         """Enable run button only when image and pipeline steps are available."""
-        has_image = self.current_image_path is not None
         pipeline_controller = getattr(self, "pipeline_controller", None)
-        has_nodes = (
-            pipeline_controller is not None
-            and len(pipeline_controller.pipeline.nodes) > 0
+        nodes = (
+            list(pipeline_controller.pipeline.nodes)
+            if pipeline_controller is not None
+            else []
         )
+        folder_node = next(
+            (node for node in nodes if node.type == "input_image_folder"),
+            None,
+        )
+
         executor = getattr(self, "pipeline_executor", None)
         is_running = executor is not None and executor.is_running()
-        is_enabled = has_image and has_nodes and not is_running
+
+        if folder_node is not None:
+            folder_path = str(folder_node.parameters.get("folder_path", ""))
+            batch_snapshot = self._collect_folder_batch_input_snapshot(folder_path)
+            has_eligible_inputs = len(batch_snapshot) > 0
+            has_executable_nodes = self._has_enabled_executable_nodes(nodes)
+            is_enabled = has_eligible_inputs and has_executable_nodes and not is_running
+            disabled_tooltip = (
+                "Select a folder with eligible images and add processing steps"
+            )
+        else:
+            has_image = self.current_image_path is not None
+            has_nodes = len(nodes) > 0
+            is_enabled = has_image and has_nodes and not is_running
+            disabled_tooltip = "Load an image and add processing steps"
 
         self.pipeline_stack.run_button.setEnabled(is_enabled)
         if is_enabled:
             self.pipeline_stack.run_button.setToolTip("")
         else:
-            self.pipeline_stack.run_button.setToolTip(
-                "Load an image and add processing steps"
-            )
+            self.pipeline_stack.run_button.setToolTip(disabled_tooltip)
 
     # === Image Navigation Handlers ===
 
@@ -523,9 +600,66 @@ class MainWindow(QMainWindow):
         """Open folder dialog."""
         folder_path = QFileDialog.getExistingDirectory(self, "Select Input Folder")
         if folder_path:
-            self.image_controller.handle_open_folder(folder_path)
+            absolute_folder_path = os.path.abspath(folder_path)
+            self.image_controller.handle_open_folder(absolute_folder_path)
             # Show folder explorer in folder mode
             self.right_panel.set_folder_explorer_visible(True)
+            # Create folder input node in pipeline
+            self._create_image_folder_node(absolute_folder_path)
+
+    def _create_image_folder_node(self, folder_path: str):
+        """Create an image folder input node in the pipeline.
+
+        Args:
+            folder_path: Path to the selected input folder
+        """
+        import uuid
+
+        absolute_folder_path = os.path.abspath(folder_path)
+
+        # Remove existing single-image input nodes to avoid stale inputs
+        existing_single_nodes = [
+            node
+            for node in list(self.pipeline_controller.pipeline.nodes)
+            if node.type == "input_single_image"
+        ]
+        for node in existing_single_nodes:
+            self.pipeline_controller.remove_node(node.id)
+
+        existing_folder_nodes = [
+            node
+            for node in list(self.pipeline_controller.pipeline.nodes)
+            if node.type == "input_image_folder"
+        ]
+
+        if existing_folder_nodes:
+            active_folder_node = existing_folder_nodes[0]
+            for duplicate_node in existing_folder_nodes[1:]:
+                self.pipeline_controller.remove_node(duplicate_node.id)
+
+            active_folder_node.name = "Image Folder"
+            active_folder_node.description = f"Input folder: {absolute_folder_path}"
+            active_folder_node.icon = "📁"
+            active_folder_node.status = "idle"
+            active_folder_node.enabled = True
+            active_folder_node.parameters = {"folder_path": absolute_folder_path}
+            self.pipeline_controller.pipeline_changed.emit()
+        else:
+            node = PipelineNode(
+                id=str(uuid.uuid4()),
+                type="input_image_folder",
+                name="Image Folder",
+                description=f"Input folder: {absolute_folder_path}",
+                icon="📁",
+                status="idle",
+                enabled=True,
+                parameters={"folder_path": absolute_folder_path},
+            )
+            self.pipeline_controller.add_node(node)
+
+        # Update the pipeline stack view
+        self._refresh_pipeline_view()
+        self._update_run_button_state()
 
     def toggle_pan_mode(self, checked):
         """Toggle canvas pan mode."""
@@ -593,15 +727,15 @@ class MainWindow(QMainWindow):
         import os
         import uuid
 
-        # Remove any existing input nodes to avoid duplicates
-        existing_input = None
-        for node in self.pipeline_controller.pipeline.nodes:
-            if node.type == "input_single_image":
-                existing_input = node
-                break
+        # Remove existing folder/image input nodes to avoid stale inputs
+        existing_input_nodes = [
+            node
+            for node in list(self.pipeline_controller.pipeline.nodes)
+            if node.type in {"input_single_image", "input_image_folder"}
+        ]
 
-        if existing_input:
-            self.pipeline_controller.remove_node(existing_input.id)
+        for node in existing_input_nodes:
+            self.pipeline_controller.remove_node(node.id)
 
         # Create new input node
         filename = os.path.basename(file_path)
@@ -643,8 +777,16 @@ class MainWindow(QMainWindow):
         self.pipeline_controller.pipeline_changed.emit()
 
     def handle_node_selected(self, node_data):
-        """Handle node selection - show properties."""
-        self.right_panel.show_properties(node_data, self.available_nodes)
+        """Handle node selection - show properties or folder explorer."""
+        node_type = node_data.get("type", "")
+
+        if node_type == "input_image_folder":
+            # For image folder node, show folder explorer and current image metadata
+            self.right_panel.set_folder_explorer_visible(True)
+            self.right_panel.show_metadata(self._get_current_metadata())
+        else:
+            # For other nodes, show properties panel
+            self.right_panel.show_properties(node_data, self.available_nodes)
 
     def handle_node_param_changed(self, node_id, param_name, value):
         """Handle parameter change from properties panel and auto-save."""
@@ -652,13 +794,42 @@ class MainWindow(QMainWindow):
 
     def handle_run_pipeline(self):
         """Handle run pipeline button click."""
-        if not self.current_image_path:
-            return
-
         if self.pipeline_executor.is_running():
             return
 
-        input_path = os.path.abspath(self.current_image_path)
+        nodes = list(self.pipeline_controller.pipeline.nodes)
+        folder_node = next(
+            (node for node in nodes if node.type == "input_image_folder"),
+            None,
+        )
+
+        if folder_node is not None:
+            folder_path = str(folder_node.parameters.get("folder_path", ""))
+            folder_snapshot = self._collect_folder_batch_input_snapshot(folder_path)
+            self._batch_input_snapshot = list(folder_snapshot)
+
+            if not self._batch_input_snapshot:
+                return
+            if not self._has_enabled_executable_nodes(nodes):
+                return
+
+            self._batch_queue = list(self._batch_input_snapshot)
+            self._batch_current_index = 0
+            self._batch_success_count = 0
+            self._batch_failure_count = 0
+            started = self._start_batch_item(self._batch_current_index)
+            if not started:
+                self._set_processing_state(False)
+                self._reset_batch_run_state()
+            return
+        else:
+            if not self.current_image_path:
+                return
+
+            input_path = os.path.abspath(self.current_image_path)
+            self._batch_input_snapshot = [input_path]
+            self._reset_batch_run_state()
+
         output_path = self._generate_output_path(input_path)
         self._set_processing_state(True, "Processing started...", 0)
 
@@ -670,6 +841,81 @@ class MainWindow(QMainWindow):
         )
         if not started:
             self._set_processing_state(False)
+
+    def _reset_batch_run_state(self):
+        """Reset folder batch orchestration state."""
+        self._batch_queue = []
+        self._batch_current_index = -1
+        self._batch_success_count = 0
+        self._batch_failure_count = 0
+
+    def _is_batch_run_active(self) -> bool:
+        """Return True when folder batch orchestration is active."""
+        return len(self._batch_queue) > 0 and 0 <= self._batch_current_index < len(
+            self._batch_queue
+        )
+
+    def _start_batch_item(self, item_index: int) -> bool:
+        """Start pipeline execution for a single queued batch item."""
+        if item_index < 0 or item_index >= len(self._batch_queue):
+            return False
+
+        queued_input_path = os.path.abspath(self._batch_queue[item_index])
+        output_path = self._generate_output_path(queued_input_path)
+        total = len(self._batch_queue)
+        self._set_processing_state(
+            True,
+            f"Processing batch item {item_index + 1}/{total}...",
+            0,
+        )
+
+        return self.pipeline_executor.start(
+            queued_input_path,
+            output_path,
+            self.pipeline_controller.pipeline.nodes,
+            STEP_REGISTRY,
+        )
+
+    def _queue_next_batch_item_or_complete(self):
+        """Continue with next queued item or emit aggregate completion summary."""
+        if not self._is_batch_run_active():
+            return
+
+        next_index = self._batch_current_index + 1
+        if next_index < len(self._batch_queue):
+            self._batch_current_index = next_index
+            if self.pipeline_executor.is_running():
+                QTimer.singleShot(0, self._queue_next_batch_item_or_complete)
+                return
+            started = self._start_batch_item(self._batch_current_index)
+            if not started:
+                if self.pipeline_executor.is_running():
+                    QTimer.singleShot(0, self._queue_next_batch_item_or_complete)
+                    return
+                self._batch_failure_count += 1
+                QTimer.singleShot(0, self._queue_next_batch_item_or_complete)
+            return
+
+        total = len(self._batch_queue)
+        success_count = self._batch_success_count
+        failure_count = self._batch_failure_count
+        self.status_label.setText(
+            f"Batch complete: {success_count} succeeded, {failure_count} failed"
+        )
+        self.right_panel.show_metadata(
+            {
+                "filename": f"{total} item(s)",
+                "subtitle": (
+                    f"Batch run complete: {success_count} succeeded, {failure_count} failed"
+                ),
+                "dimensions": "-",
+                "bitdepth": "-",
+                "channels": "-",
+                "filesize": "-",
+            }
+        )
+        self._update_run_button_state()
+        self._reset_batch_run_state()
 
     def _refresh_pipeline_view(self):
         """Refresh the pipeline stack view from controller."""
@@ -750,11 +996,24 @@ class MainWindow(QMainWindow):
         self._set_processing_state(False)
         self._update_run_button_state()
 
+        if self._is_batch_run_active():
+            self._batch_success_count += 1
+            self._queue_next_batch_item_or_complete()
+
     def _handle_pipeline_error(self, error_message: str):
         """Handle worker errors and restore UI state."""
         self._close_processing_dialog()
 
         logger.error("Pipeline execution failed: %s", error_message)
+
+        if self._is_batch_run_active():
+            self.status_label.setText("Batch item failed; continuing...")
+            self._set_processing_state(False)
+            self._update_run_button_state()
+            self._batch_failure_count += 1
+            self._queue_next_batch_item_or_complete()
+            return
+
         self.status_label.setText("Processing failed")
         self._set_processing_state(False)
         self._update_run_button_state()
