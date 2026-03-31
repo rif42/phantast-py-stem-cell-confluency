@@ -29,7 +29,7 @@ from PyQt6.QtCore import Qt, QObject, QThread, QTimer, pyqtSignal
 # Models
 from src.models.image_model import ImageSessionModel
 from src.models.pipeline_model import Pipeline, PipelineNode
-from src.models.settings_manager import get_node_parameters
+from src.models.settings_interface import get_node_parameters
 
 # Views
 from src.ui.pipeline_stack_widget import PipelineStackWidget

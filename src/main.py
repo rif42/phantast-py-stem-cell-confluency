@@ -7,9 +7,13 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from PyQt6.QtWidgets import QApplication
 from src.ui.main_window import MainWindow
 from src.ui.styles import Styles
+from src.services import initialize_settings_interface
 
 
 def main():
+    # Initialize settings interface (must be done before any UI components)
+    initialize_settings_interface()
+
     app = QApplication(sys.argv)
 
     # Apply global stylesheet - ensures consistent styling across all widgets

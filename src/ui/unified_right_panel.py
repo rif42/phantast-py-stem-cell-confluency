@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 
-from src.models.settings_manager import save_node_parameter
+from src.models.settings_interface import save_node_parameter
 
 
 class UnifiedRightPanel(QFrame):

@@ -1,23 +1,26 @@
-"""Settings manager for persisting application settings and node parameters.
+"""Settings service for persisting application configuration.
 
-This module provides a centralized way to save and load user preferences,
-including CLAHE and PHANTAST node parameter values that persist between sessions.
+This module provides a QSettings-based implementation of the SettingsInterface.
+It belongs in the services/ layer since it depends on PyQt6.
 """
 
 from typing import Any, Dict, Optional
 from PyQt6.QtCore import QSettings
 
+from src.models.settings_interface import SettingsInterface
 
-class SettingsManager:
-    """Manages persistent application settings using QSettings.
 
+class SettingsService(SettingsInterface):
+    """QSettings-based implementation of settings persistence.
+
+    This class manages persistent application settings using Qt's QSettings.
     All node parameters for CLAHE and PHANTAST are automatically persisted
     when changed, and loaded when nodes are created.
     """
 
-    _instance: Optional["SettingsManager"] = None
+    _instance: Optional["SettingsService"] = None
 
-    def __new__(cls) -> "SettingsManager":
+    def __new__(cls) -> "SettingsService":
         """Singleton pattern to ensure single settings instance."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -25,7 +28,7 @@ class SettingsManager:
         return cls._instance
 
     def __init__(self):
-        """Initialize the settings manager."""
+        """Initialize the settings service."""
         if self._initialized:
             return
 
@@ -108,39 +111,26 @@ class SettingsManager:
 
 
 # Global singleton instance
-_settings_manager: Optional[SettingsManager] = None
+_settings_service: Optional[SettingsService] = None
 
 
-def get_settings_manager() -> SettingsManager:
-    """Get the global settings manager instance.
-
-    Returns:
-        The singleton SettingsManager instance
-    """
-    global _settings_manager
-    if _settings_manager is None:
-        _settings_manager = SettingsManager()
-    return _settings_manager
-
-
-def get_node_parameters(node_type: str) -> Dict[str, Any]:
-    """Convenience function to get saved parameters for a node type.
-
-    Args:
-        node_type: The type of node (e.g., 'clahe', 'phantast')
+def get_settings_service() -> SettingsService:
+    """Get the global settings service instance.
 
     Returns:
-        Dictionary of parameter names and values
+        The singleton SettingsService instance
     """
-    return get_settings_manager().get_node_parameters(node_type)
+    global _settings_service
+    if _settings_service is None:
+        _settings_service = SettingsService()
+    return _settings_service
 
 
-def save_node_parameter(node_type: str, param_name: str, value: Any) -> None:
-    """Convenience function to save a single parameter value.
+def initialize_settings_interface() -> None:
+    """Initialize the global settings interface.
 
-    Args:
-        node_type: The type of node
-        param_name: Name of the parameter
-        value: Value to save
+    This should be called once during application startup.
     """
-    get_settings_manager().save_node_parameter(node_type, param_name, value)
+    from src.models.settings_interface import set_settings_interface
+
+    set_settings_interface(get_settings_service())

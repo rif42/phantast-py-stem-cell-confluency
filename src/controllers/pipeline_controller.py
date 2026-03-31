@@ -2,6 +2,7 @@ from PyQt6.QtCore import QObject, pyqtSignal
 from src.models.pipeline_model import Pipeline, PipelineNode
 from typing import Optional, Dict, Any
 
+
 class PipelineController(QObject):
     pipeline_changed = pyqtSignal()  # Emitted on add, remove, reorder
     node_toggled = pyqtSignal(str, bool)  # node_id, is_enabled
@@ -42,7 +43,7 @@ class PipelineController(QObject):
 
         # Ensure index is within bounds
         new_index = max(0, min(new_index, len(self.pipeline.nodes) - 1))
-        
+
         self.pipeline.nodes.pop(current_index)
         self.pipeline.nodes.insert(new_index, node)
         self.pipeline_changed.emit()
@@ -52,3 +53,25 @@ class PipelineController(QObject):
         if node:
             node.parameters.update(params)
             self.node_updated.emit(node_id)
+
+    def reorder_nodes(self, node_id: str, new_index: int):
+        """Reorder pipeline nodes based on new position.
+
+        Args:
+            node_id: ID of the node being moved
+            new_index: Target index in the pipeline
+        """
+        node = self.get_node(node_id)
+        if not node:
+            return
+
+        current_index = self.pipeline.nodes.index(node)
+        if current_index == new_index:
+            return
+
+        # Ensure index is within bounds
+        new_index = max(0, min(new_index, len(self.pipeline.nodes) - 1))
+
+        self.pipeline.nodes.pop(current_index)
+        self.pipeline.nodes.insert(new_index, node)
+        self.pipeline_changed.emit()
