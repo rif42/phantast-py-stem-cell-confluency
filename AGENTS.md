@@ -2,6 +2,51 @@
 
 **Context:** PyQt6 desktop application for stem cell image processing and confluency detection.
 
+---
+
+## 🚨 MANDATORY: Check Code Review Graph Before Every Task
+
+**BEFORE starting ANY work on this codebase, you MUST:**
+
+1. **Review the Code Review Graph** - See the architecture visualization, dependencies, and violation markers
+2. **Understand the data flow** - How signals/slots connect models, views, and controllers
+3. **Identify violation boundaries** - Know which code is compliant vs. flagged for refactoring
+
+### Code Review Graph Location
+The comprehensive code review graph is maintained in the conversation history. It shows:
+- **Module dependency graph** - Which files import which
+- **Class hierarchy** - QWidget inheritance relationships  
+- **Signal/slot connections** - 41 event connections across 6 files
+- **Data flow patterns** - Request-response cycles
+- **Violation markers** - Red flags on problematic connections
+- **Thread boundaries** - Main thread vs. worker thread separation
+
+### Key Architectural Insights from the Graph
+
+| Layer | Compliance | Critical Notes |
+|-------|-----------|---------------|
+| **models/** | ⚠️ Partial | SettingsManager violates PyQt-free rule (imports QSettings) |
+| **ui/** | ❌ Violations | MainWindow is a God Class (1400 lines), business logic embedded |
+| **controllers/** | ✅ Good | Clean signal-based mediation |
+| **core/** | ✅ Excellent | Proper threading with worker.moveToThread() |
+
+### Critical Violations to Avoid
+1. **QSettings in models/** - Never add PyQt imports to models/
+2. **Direct model mutation** - Always route through controllers
+3. **Business logic in UI** - Keep MainWindow lean, extract to services
+4. **Modal dialogs** - Use inline components, not QDialog
+5. **Missing parent=** - Every QWidget needs parent parameter
+
+### When Planning Changes
+- **New UI widget?** → Check inheritance, ensure parent= parameter
+- **New signal?** → Verify thread boundary, use proper @pyqtSlot
+- **Model change?** → Ensure no PyQt imports, CLI-runnable
+- **Controller change?** → Follow existing signal patterns
+
+**ALWAYS CONSULT THE GRAPH FIRST. Architecture violations compound technical debt.**
+
+---
+
 ## Project Overview
 
 PhantastLab is a scientific image analysis tool for biologists working with stem cell microscopy. It provides:

@@ -395,6 +395,7 @@ def process_phantast(
     mask = morphology_majority(mask, iterations=20)
     mask = morphology_clean(mask)
     confluency = calculate_confluency(mask)
+    print("IMAGE CONFLUENCY", confluency)
     return confluency, mask
 
 
