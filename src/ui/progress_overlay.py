@@ -38,10 +38,12 @@ class ProgressOverlay(QWidget):
         # Initial state: hidden
         self.hide()
 
-        self._setup_ui()
+        # Initialize spinner state BEFORE setting up UI
         self._spinner_timer = None
         self._spinner_index = 0
         self._spinner_frames = ["◐", "◓", "◑", "◒"]
+
+        self._setup_ui()
 
     def _setup_ui(self):
         """Set up the overlay UI components."""
