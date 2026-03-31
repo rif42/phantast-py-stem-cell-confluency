@@ -22,20 +22,20 @@ from PyQt6.QtWidgets import (
     QProgressBar,
     QMessageBox,
     QStatusBar,
-    QDialog,
 )
 from PyQt6.QtCore import Qt, QObject, QThread, QTimer, pyqtSignal
 
 # Models
 from src.models.image_model import ImageSessionModel
-from src.models.pipeline_model import Pipeline, PipelineNode
 from src.models.settings_interface import get_node_parameters
+from src.models.pipeline_model import Pipeline, PipelineNode
 
 # Views
 from src.ui.pipeline_stack_widget import PipelineStackWidget
 from src.ui.image_canvas import ImageCanvas
 from src.ui.comparison_controls import ComparisonControls
 from src.ui.unified_right_panel import UnifiedRightPanel
+from src.ui.progress_overlay import ProgressOverlay
 
 # Controllers
 from src.controllers.image_controller import ImageNavigationController
@@ -117,33 +117,6 @@ class PipelineExecutor(QObject):
             self._worker = None
 
 
-class ProcessingDialog(QDialog):
-    """Modal dialog shown during pipeline processing."""
-
-    def __init__(self, parent=None):
-        super().__init__(parent=parent)
-        self.setWindowTitle("Processing")
-        self.setModal(True)
-        self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.FramelessWindowHint)
-        self.setFixedSize(300, 150)
-
-        layout = QVBoxLayout(self)
-        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self.spinner_label = QLabel("🔬", parent=self)
-        self.spinner_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.spinner_label.setStyleSheet("font-size: 48px;")
-        layout.addWidget(self.spinner_label)
-
-        self.text_label = QLabel("Processing...", parent=self)
-        self.text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.text_label.setStyleSheet("font-size: 16px; color: #E8EAED;")
-        layout.addWidget(self.text_label)
-
-        if parent is not None:
-            self.move(parent.frameGeometry().center() - self.rect().center())
-
-
 class MainWindow(QMainWindow):
     """Main application window combining image navigation and pipeline features."""
 
@@ -168,7 +141,7 @@ class MainWindow(QMainWindow):
         self._batch_current_index: int = -1
         self._batch_success_count: int = 0
         self._batch_failure_count: int = 0
-        self.processing_dialog: Optional[ProcessingDialog] = None
+        self.progress_overlay: Optional[ProgressOverlay] = None
 
         # Core Container
         self.main_container = QWidget(parent=self)
@@ -944,7 +917,7 @@ class MainWindow(QMainWindow):
 
     def _handle_pipeline_started(self):
         """Handle worker started signal in the main thread."""
-        self._show_processing_dialog()
+        self._show_processing_overlay()
 
         # Cursor already set in handle_run_pipeline, just update status
         self.status_label.setText("Processing started...")
@@ -962,7 +935,7 @@ class MainWindow(QMainWindow):
 
     def _handle_pipeline_finished(self, output_path: str):
         """Apply successful pipeline output and restore UI state."""
-        self._close_processing_dialog()
+        self._close_processing_overlay()
 
         output_filename = os.path.basename(output_path)
         self.image_model.active_image = {
@@ -1009,7 +982,7 @@ class MainWindow(QMainWindow):
 
     def _handle_pipeline_error(self, error_message: str):
         """Handle worker errors and restore UI state."""
-        self._close_processing_dialog()
+        self._close_processing_overlay()
 
         logger.error("Pipeline execution failed: %s", error_message)
 
@@ -1061,20 +1034,16 @@ class MainWindow(QMainWindow):
         """Show error details for failed pipeline execution."""
         QMessageBox.critical(self, "Pipeline Error", message)
 
-    def _show_processing_dialog(self):
-        """Show modal processing dialog."""
-        if self.processing_dialog is not None:
-            self.processing_dialog.close()
-            self.processing_dialog.deleteLater()
-        self.processing_dialog = ProcessingDialog(parent=self)
-        self.processing_dialog.show()
+    def _show_processing_overlay(self):
+        """Show inline progress overlay on canvas."""
+        if self.progress_overlay is None:
+            self.progress_overlay = ProgressOverlay(parent=self.image_canvas)
+        self.progress_overlay.show_progress("Processing...", 0)
 
-    def _close_processing_dialog(self):
-        """Close and clean up processing dialog if open."""
-        if self.processing_dialog is not None:
-            self.processing_dialog.close()
-            self.processing_dialog.deleteLater()
-            self.processing_dialog = None
+    def _close_processing_overlay(self):
+        """Hide progress overlay."""
+        if self.progress_overlay is not None:
+            self.progress_overlay.hide_progress()
 
     def _on_mask_saved(self, _source_path: str, mask_path: str):
         """Handle mask save completion from worker."""
