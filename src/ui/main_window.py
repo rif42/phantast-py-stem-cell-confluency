@@ -43,6 +43,9 @@ from src.controllers.pipeline_controller import PipelineController
 from src.core.steps import STEP_REGISTRY
 from src.core.pipeline_worker import PipelineWorker
 
+# Services
+from src.services import ImageService, BatchService, PipelineService
+
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +145,11 @@ class MainWindow(QMainWindow):
         self._batch_success_count: int = 0
         self._batch_failure_count: int = 0
         self.progress_overlay: Optional[ProgressOverlay] = None
+
+        # Initialize services
+        self.batch_service = BatchService()
+        self.image_service = ImageService()
+        self.pipeline_service = PipelineService()
 
         # Core Container
         self.main_container = QWidget(parent=self)
@@ -464,61 +472,6 @@ class MainWindow(QMainWindow):
         if not has_image:
             self.right_panel.clear()
 
-    @staticmethod
-    def _is_generated_artifact_filename(filename: str) -> bool:
-        """Return True when a file name matches generated output artifacts."""
-        lowered = filename.lower()
-        return "_processed" in lowered or "_mask" in lowered
-
-    def _collect_folder_batch_input_snapshot(
-        self, folder_path: Optional[str] = None
-    ) -> list[str]:
-        """Collect deterministic, filtered folder-mode inputs as absolute paths."""
-        selected_folder = folder_path or self.image_model.current_folder
-        if not selected_folder:
-            return []
-
-        absolute_folder = os.path.abspath(selected_folder)
-        if not os.path.isdir(absolute_folder):
-            return []
-
-        valid_extensions = tuple(
-            ext.lower()
-            for ext in getattr(
-                self.image_model,
-                "valid_extensions",
-                (".png", ".jpg", ".jpeg", ".tif", ".tiff"),
-            )
-        )
-
-        snapshot: list[str] = []
-        for filename in sorted(
-            list(self.image_model.files), key=lambda value: str(value).lower()
-        ):
-            if not isinstance(filename, str):
-                continue
-
-            lowered_name = filename.lower()
-            if not lowered_name.endswith(valid_extensions):
-                continue
-            if self._is_generated_artifact_filename(lowered_name):
-                continue
-
-            absolute_path = os.path.abspath(os.path.join(absolute_folder, filename))
-            if os.path.isfile(absolute_path):
-                snapshot.append(absolute_path)
-
-        return list(snapshot)
-
-    @staticmethod
-    def _has_enabled_executable_nodes(nodes) -> bool:
-        """Return True if at least one enabled non-input node exists."""
-        return any(
-            node.enabled
-            and node.type not in {"input_single_image", "input_image_folder"}
-            for node in nodes
-        )
-
     def _update_run_button_state(self):
         """Enable run button only when image and pipeline steps are available."""
         pipeline_controller = getattr(self, "pipeline_controller", None)
@@ -537,9 +490,13 @@ class MainWindow(QMainWindow):
 
         if folder_node is not None:
             folder_path = str(folder_node.parameters.get("folder_path", ""))
-            batch_snapshot = self._collect_folder_batch_input_snapshot(folder_path)
+            batch_snapshot = self.image_service.collect_folder_batch_input_snapshot(
+                folder_path, self.image_model.files
+            )
             has_eligible_inputs = len(batch_snapshot) > 0
-            has_executable_nodes = self._has_enabled_executable_nodes(nodes)
+            has_executable_nodes = self.pipeline_service.has_enabled_executable_nodes(
+                nodes
+            )
             is_enabled = has_eligible_inputs and has_executable_nodes and not is_running
             disabled_tooltip = (
                 "Select a folder with eligible images and add processing steps"
@@ -781,12 +738,14 @@ class MainWindow(QMainWindow):
 
         if folder_node is not None:
             folder_path = str(folder_node.parameters.get("folder_path", ""))
-            folder_snapshot = self._collect_folder_batch_input_snapshot(folder_path)
+            folder_snapshot = self.image_service.collect_folder_batch_input_snapshot(
+                folder_path, self.image_model.files
+            )
             self._batch_input_snapshot = list(folder_snapshot)
 
             if not self._batch_input_snapshot:
                 return
-            if not self._has_enabled_executable_nodes(nodes):
+            if not self.pipeline_service.has_enabled_executable_nodes(nodes):
                 return
 
             self._batch_queue = list(self._batch_input_snapshot)
@@ -806,7 +765,7 @@ class MainWindow(QMainWindow):
             self._batch_input_snapshot = [input_path]
             self._reset_batch_run_state()
 
-        output_path = self._generate_output_path(input_path)
+        output_path = self.image_service.generate_output_path(input_path)
         self._set_processing_state(True, "Processing started...", 0)
 
         started = self.pipeline_executor.start(
@@ -837,7 +796,7 @@ class MainWindow(QMainWindow):
             return False
 
         queued_input_path = os.path.abspath(self._batch_queue[item_index])
-        output_path = self._generate_output_path(queued_input_path)
+        output_path = self.image_service.generate_output_path(queued_input_path)
         total = len(self._batch_queue)
         self._set_processing_state(
             True,
@@ -1072,33 +1031,6 @@ class MainWindow(QMainWindow):
         self.image_canvas.set_overlay_image(self._mask_image_path)
         self.image_canvas.show_overlay(self.comparison_controls.mask_toggle.isChecked())
 
-    def _generate_output_path(self, input_path: str) -> str:
-        """Generate a non-conflicting processed output path for an input image."""
-        abs_input_path = os.path.abspath(input_path)
-        directory = os.path.dirname(abs_input_path)
-
-        filename = os.path.basename(abs_input_path)
-        name, ext = os.path.splitext(filename)
-        if not ext:
-            ext = ".png"
-
-        base_name = name if name.endswith("_processed") else f"{name}_processed"
-        counter = 1 if name.endswith("_processed") else 0
-
-        candidate_name = base_name if counter == 0 else f"{base_name}_{counter}"
-        candidate_path = os.path.abspath(
-            os.path.join(directory, f"{candidate_name}{ext}")
-        )
-
-        while os.path.exists(candidate_path):
-            counter = 1 if counter == 0 else counter + 1
-            candidate_name = f"{base_name}_{counter}"
-            candidate_path = os.path.abspath(
-                os.path.join(directory, f"{candidate_name}{ext}")
-            )
-
-        return candidate_path
-
     def _get_current_metadata(self):
         """Get metadata for currently loaded image."""
         if not self.current_image_path:
@@ -1178,7 +1110,7 @@ class MainWindow(QMainWindow):
         self._update_empty_state()
 
         # Auto-discover existing processed and mask images
-        self._discover_existing_variants(filepath)
+        self.image_service.discover_existing_variants(filepath)
 
         # Update metadata
         metadata = self._get_current_metadata()
