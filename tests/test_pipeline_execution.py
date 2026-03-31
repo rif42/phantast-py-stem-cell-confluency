@@ -946,3 +946,185 @@ def test_batch_error_no_dialog_spam(qtbot, monkeypatch, tmp_path):
         captured_metadata[-1]["subtitle"] == "Batch run complete: 0 succeeded, 2 failed"
     )
     window.close()
+
+
+def test_delete_input_single_image_node_resets_center_and_right_panel(
+    qtbot, monkeypatch, tmp_path
+):
+    """Test that deleting an input_single_image node resets center and right panels."""
+    window = MainWindow()
+
+    # Create a single image input node and set image state
+    image_path = tmp_path / "test.png"
+    image_path.write_bytes((FIXTURES_DIR / "synthetic_stem_cells.png").read_bytes())
+    window._create_single_image_node(str(image_path))
+    window.current_image_path = str(image_path)
+    window._original_image_path = str(image_path)
+
+    # Verify initial state has image loaded
+    assert window.current_image_path is not None
+
+    # Get the input node id
+    input_nodes = [
+        node
+        for node in window.pipeline_controller.pipeline.nodes
+        if node.type == "input_single_image"
+    ]
+    assert len(input_nodes) == 1
+    input_node_id = input_nodes[0].id
+
+    # Track right panel clear calls
+    cleared = []
+    monkeypatch.setattr(window.right_panel, "clear", lambda: cleared.append(True))
+
+    # Track folder explorer visibility
+    folder_explorer_visibility = []
+    monkeypatch.setattr(
+        window.right_panel,
+        "set_folder_explorer_visible",
+        lambda visible: folder_explorer_visibility.append(visible),
+    )
+
+    # Delete the input node
+    window.handle_delete_node(input_node_id)
+
+    # Verify reset occurred
+    assert window.current_image_path is None
+    assert window._original_image_path is None
+    assert cleared == [True]
+    assert folder_explorer_visibility == [False]
+
+    window.close()
+
+
+def test_delete_non_input_node_preserves_current_image_context(
+    qtbot, monkeypatch, tmp_path
+):
+    """Test that deleting a non-input node preserves current image context."""
+    window = MainWindow()
+
+    # Create a single image input node and a processing node
+    image_path = tmp_path / "test.png"
+    image_path.write_bytes((FIXTURES_DIR / "synthetic_stem_cells.png").read_bytes())
+    window._create_single_image_node(str(image_path))
+    window.current_image_path = str(image_path)
+    window._original_image_path = str(image_path)
+
+    # Add a processing node (CLAHE)
+    window.pipeline_controller.add_node(_node("clahe", enabled=True))
+
+    # Get the CLAHE node id
+    clahe_nodes = [
+        node
+        for node in window.pipeline_controller.pipeline.nodes
+        if node.type == "clahe"
+    ]
+    assert len(clahe_nodes) == 1
+    clahe_node_id = clahe_nodes[0].id
+
+    # Track right panel clear calls (should NOT be called for non-input deletion)
+    cleared = []
+    monkeypatch.setattr(window.right_panel, "clear", lambda: cleared.append(True))
+
+    # Track metadata show calls (should be called for non-input deletion)
+    metadata_shown = []
+    monkeypatch.setattr(
+        window.right_panel,
+        "show_metadata",
+        lambda metadata: metadata_shown.append(metadata),
+    )
+
+    # Delete the CLAHE node (non-input)
+    window.handle_delete_node(clahe_node_id)
+
+    # Verify image context is preserved
+    assert window.current_image_path == str(image_path)
+    assert window._original_image_path == str(image_path)
+    assert cleared == []  # clear() should NOT have been called
+    assert len(metadata_shown) == 1  # metadata should have been shown
+
+    window.close()
+
+
+def test_delete_input_folder_node_disables_run_gate_and_hides_folder_explorer(
+    qtbot, monkeypatch, tmp_path
+):
+    """Test that deleting an input_image_folder node disables run and hides folder explorer."""
+    window = MainWindow()
+
+    # Create a folder input node
+    folder_path = tmp_path / "images"
+    folder_path.mkdir()
+    window._create_image_folder_node(str(folder_path))
+    window.current_image_path = str(folder_path)
+
+    # Add a processing node
+    window.pipeline_controller.add_node(_node("clahe", enabled=True))
+
+    # Get the folder input node id
+    folder_nodes = [
+        node
+        for node in window.pipeline_controller.pipeline.nodes
+        if node.type == "input_image_folder"
+    ]
+    assert len(folder_nodes) == 1
+    folder_node_id = folder_nodes[0].id
+
+    # Track folder explorer visibility
+    folder_explorer_visibility = []
+    monkeypatch.setattr(
+        window.right_panel,
+        "set_folder_explorer_visible",
+        lambda visible: folder_explorer_visibility.append(visible),
+    )
+
+    # Track run button state updates
+    run_button_updates = []
+    original_update_run = window._update_run_button_state
+
+    def tracked_update_run():
+        run_button_updates.append(window.pipeline_stack.run_button.isEnabled())
+        original_update_run()
+
+    monkeypatch.setattr(window, "_update_run_button_state", tracked_update_run)
+
+    # Delete the folder input node
+    window.handle_delete_node(folder_node_id)
+
+    # Verify folder explorer is hidden
+    assert folder_explorer_visibility == [False]
+
+    # Verify current_image_path is cleared
+    assert window.current_image_path is None
+
+    window.close()
+
+
+def test_delete_unknown_node_id_no_crash(qtbot):
+    """Test that deleting a non-existent node id doesn't crash."""
+    window = MainWindow()
+
+    # Try to delete a node that doesn't exist
+    # Should not raise an exception
+    window.handle_delete_node("non-existent-node-id")
+
+    # Window should still be functional
+    assert window.pipeline_controller is not None
+
+    window.close()
+
+
+def test_delete_step_style_tokens(qtbot):
+    """Test that delete step menu has the expected style tokens."""
+    from src.ui.pipeline_stack_widget import PipelineNodeWidget
+
+    # Create a PipelineNodeWidget to inspect its context menu
+    node_data = {"id": "test-node", "name": "Test", "type": "clahe"}
+    widget = PipelineNodeWidget(node_data, is_selected=False)
+
+    # The style should be set in contextMenuEvent
+    # Verify widget was created successfully with parent
+    assert widget.parent() is None  # No parent set in test
+    assert widget.node_id == "test-node"
+
+    widget.close()

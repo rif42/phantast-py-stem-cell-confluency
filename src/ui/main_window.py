@@ -455,8 +455,9 @@ class MainWindow(QMainWindow):
         """Update UI based on whether an image is loaded."""
         has_image = self.current_image_path is not None
 
-        # Toggle overlay visibility
+        # Toggle overlay and canvas visibility
         self.empty_overlay.setVisible(not has_image)
+        self.image_canvas.setVisible(has_image)
 
         # Enable/disable add button
         if self.pipeline_stack.add_button:
@@ -694,12 +695,42 @@ class MainWindow(QMainWindow):
 
     def handle_delete_node(self, node_id):
         """Delete a node."""
+        # Resolve node type before removal to determine if reset is needed
+        nodes = list(self.pipeline_controller.pipeline.nodes)
+        node_to_delete = next((n for n in nodes if n.id == node_id), None)
+        is_input_node = node_to_delete is not None and node_to_delete.type in (
+            "input_single_image",
+            "input_image_folder",
+        )
+
         self.pipeline_controller.remove_node(node_id)
         self._refresh_pipeline_view()
         self._update_run_button_state()
 
-        # If we deleted the selected node, show metadata
-        self.right_panel.show_metadata(self._get_current_metadata())
+        if is_input_node:
+            # Reset center view and right sidebar for input node deletion
+            self._reset_for_input_deletion()
+        else:
+            # If we deleted the selected node, show metadata
+            self.right_panel.show_metadata(self._get_current_metadata())
+
+    def _reset_for_input_deletion(self):
+        """Reset UI state when an input node is deleted."""
+        # Clear image path and related state
+        self.current_image_path = None
+        self._original_image_path = None
+        self._processed_image_path = None
+        self._mask_image_path = None
+
+        # Reset comparison controls
+        if hasattr(self, "comparison_controls"):
+            self.comparison_controls.reset()
+
+        # Update empty state (hides image, clears right panel)
+        self._update_empty_state()
+
+        # Ensure folder explorer is hidden
+        self.right_panel.set_folder_explorer_visible(False)
 
     def handle_node_reordered(self, new_order):
         """Handle node reordering."""

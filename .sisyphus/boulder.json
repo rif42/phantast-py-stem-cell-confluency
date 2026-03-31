@@ -1,10 +1,7 @@
 {
-  "active_plan": "D:/work/phantast-py-stem-cell-confluency/.sisyphus/plans/image-folder-process-node.md",
-  "started_at": "2026-03-12T06:26:33.997Z",
-  "session_ids": [
-    "ses_32f06b569ffernh40OmBYRrFqy",
-    "ses_31f613ef3ffesmfdyoWJ7v4u6T"
-  ],
-  "plan_name": "image-folder-process-node",
+  "active_plan": "D:/work/phantast-py-stem-cell-confluency/.sisyphus/plans/delete-step-input-reset.md",
+  "started_at": "2026-03-31T08:28:32Z",
+  "session_ids": ["ses_2bd097df2ffefl7P3867Xh9n2H"],
+  "plan_name": "delete-step-input-reset",
   "worktree_path": "D:/work/phantast-py-stem-cell-confluency"
 }

@@ -207,6 +207,34 @@ class PipelineNodeWidget(QFrame):
     def contextMenuEvent(self, event):
         menu = QMenu(self)
         delete_action = menu.addAction("Delete Step")
+        # Style the delete action as destructive (opaque red bg, bold black text)
+        menu.setStyleSheet("""
+            QMenu {
+                background-color: #1a1d21;
+                border: 1px solid #2a2e33;
+                padding: 4px;
+            }
+            QMenu::item {
+                padding: 8px 20px;
+                color: #E8EAED;
+                background-color: transparent;
+            }
+            QMenu::item:selected {
+                background-color: #00B884;
+                color: #121415;
+            }
+            QMenu::item#deleteAction {
+                background-color: #DC2626;
+                color: #000000;
+                font-weight: bold;
+            }
+            QMenu::item#deleteAction:selected {
+                background-color: #EF4444;
+                color: #000000;
+                font-weight: bold;
+            }
+        """)
+        delete_action.setObjectName("deleteAction")
         action = menu.exec(self.mapToGlobal(event.pos()))
         if action == delete_action:
             self.deleted.emit(self.node_id)
