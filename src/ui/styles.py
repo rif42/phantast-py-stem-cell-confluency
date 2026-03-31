@@ -570,14 +570,6 @@ class ComponentStyles:
     def dialogs() -> str:
         """Dialog and overlay styles."""
         return f"""
-            QDialog {{
-                background-color: {Theme.BG_DARK};
-            }}
-            
-            QMessageBox {{
-                background-color: {Theme.BG_DARK};
-            }}
-            
             QMenu {{
                 background-color: {Theme.BG_CARD};
                 color: {Theme.TEXT_PRIMARY};

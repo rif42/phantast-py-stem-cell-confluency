@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import QApplication
 from src.ui.main_window import MainWindow
 from src.ui.styles import Styles
 from src.services import initialize_settings_interface
+from src.ui.notification_manager import initialize_notifications
 
 
 def main():
@@ -21,6 +22,10 @@ def main():
 
     window = MainWindow()
     window.show()
+
+    # Initialize notifications after window is shown
+    initialize_notifications(window)
+
     sys.exit(app.exec())
 
 

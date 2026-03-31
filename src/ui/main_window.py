@@ -20,7 +20,6 @@ from PyQt6.QtWidgets import (
     QSplitter,
     QFileDialog,
     QProgressBar,
-    QMessageBox,
     QStatusBar,
 )
 from PyQt6.QtCore import Qt, QObject, QThread, QTimer, pyqtSignal
@@ -36,6 +35,7 @@ from src.ui.image_canvas import ImageCanvas
 from src.ui.comparison_controls import ComparisonControls
 from src.ui.unified_right_panel import UnifiedRightPanel
 from src.ui.progress_overlay import ProgressOverlay
+from src.ui.notification_manager import show_warning, show_error
 
 # Controllers
 from src.controllers.image_controller import ImageNavigationController
@@ -666,11 +666,7 @@ class MainWindow(QMainWindow):
                 if str(node.type).lower() == "phantast"
             ]
             if existing_phantast:
-                QMessageBox.warning(
-                    self,
-                    "Cannot Add Step",
-                    "Only one PHANTAST node is allowed.",
-                )
+                show_warning("Only one PHANTAST node is allowed.")
                 return
 
         # Create a new node
@@ -1032,7 +1028,7 @@ class MainWindow(QMainWindow):
 
     def _show_error_dialog(self, message: str):
         """Show error details for failed pipeline execution."""
-        QMessageBox.critical(self, "Pipeline Error", message)
+        show_error(message)
 
     def _show_processing_overlay(self):
         """Show inline progress overlay on canvas."""
