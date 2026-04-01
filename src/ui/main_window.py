@@ -109,6 +109,7 @@ class PipelineExecutor(QObject):
 
     def _finalize(self, _payload=None):
         """Stop and clean up worker thread resources."""
+        print(f"[BATCH] _finalize called, thread={self._thread}", flush=True)
         if self._thread is not None:
             self._thread.quit()
             self._thread.wait(3000)
@@ -783,6 +784,10 @@ class MainWindow(QMainWindow):
             self._batch_current_index = 0
             self._batch_success_count = 0
             self._batch_failure_count = 0
+            print(
+                f"[BATCH] Starting batch run: {len(self._batch_queue)} items: {self._batch_queue}",
+                flush=True,
+            )
             started = self._start_batch_item(self._batch_current_index)
             if not started:
                 self._set_processing_state(False)
@@ -824,40 +829,80 @@ class MainWindow(QMainWindow):
     def _start_batch_item(self, item_index: int) -> bool:
         """Start pipeline execution for a single queued batch item."""
         if item_index < 0 or item_index >= len(self._batch_queue):
+            print(
+                f"[BATCH] _start_batch_item({item_index}) out of range (queue={len(self._batch_queue)})",
+                flush=True,
+            )
             return False
+
+        # Reset per-image state to avoid stale data from previous batch item
+        self._mask_image_path = None
+        self._processed_image_path = None
+        self.image_canvas.clear_overlay()
+        if hasattr(self, "comparison_controls"):
+            self.comparison_controls.reset()
 
         queued_input_path = os.path.abspath(self._batch_queue[item_index])
         output_path = self.image_service.generate_output_path(queued_input_path)
         total = len(self._batch_queue)
+        print(
+            f"[BATCH] Starting item {item_index + 1}/{total}: {queued_input_path} -> {output_path}",
+            flush=True,
+        )
         self._set_processing_state(
             True,
             f"Processing batch item {item_index + 1}/{total}...",
             0,
         )
 
-        return self.pipeline_executor.start(
+        result = self.pipeline_executor.start(
             queued_input_path,
             output_path,
             self.pipeline_controller.pipeline.nodes,
             STEP_REGISTRY,
         )
+        print(
+            f"[BATCH] pipeline_executor.start() returned {result}, is_running={self.pipeline_executor.is_running()}",
+            flush=True,
+        )
+        return result
 
     def _queue_next_batch_item_or_complete(self):
         """Continue with next queued item or emit aggregate completion summary."""
         if not self._is_batch_run_active():
+            print(
+                f"[BATCH] _queue_next called but batch not active (queue={len(self._batch_queue)}, idx={self._batch_current_index})",
+                flush=True,
+            )
             return
 
         next_index = self._batch_current_index + 1
+        print(
+            f"[BATCH] _queue_next: current_idx={self._batch_current_index}, next_index={next_index}, queue_len={len(self._batch_queue)}, is_running={self.pipeline_executor.is_running()}",
+            flush=True,
+        )
         if next_index < len(self._batch_queue):
-            self._batch_current_index = next_index
             if self.pipeline_executor.is_running():
+                print(
+                    "[BATCH] Executor still running, rescheduling via QTimer.singleShot(0)",
+                    flush=True,
+                )
                 QTimer.singleShot(0, self._queue_next_batch_item_or_complete)
                 return
+            self._batch_current_index = next_index
             started = self._start_batch_item(self._batch_current_index)
             if not started:
                 if self.pipeline_executor.is_running():
+                    print(
+                        "[BATCH] Start returned False (still running), rescheduling",
+                        flush=True,
+                    )
                     QTimer.singleShot(0, self._queue_next_batch_item_or_complete)
                     return
+                print(
+                    f"[BATCH] Start failed for item {self._batch_current_index}, incrementing failure count",
+                    flush=True,
+                )
                 self._batch_failure_count += 1
                 QTimer.singleShot(0, self._queue_next_batch_item_or_complete)
             return
@@ -923,6 +968,11 @@ class MainWindow(QMainWindow):
         """Apply successful pipeline output and restore UI state."""
         self._close_processing_overlay()
 
+        print(
+            f"[BATCH] _handle_pipeline_finished: output={output_path}, batch_active={self._is_batch_run_active()}, idx={self._batch_current_index}, queue={len(self._batch_queue)}",
+            flush=True,
+        )
+
         output_filename = os.path.basename(output_path)
         self.image_model.active_image = {
             "filename": output_filename,
@@ -970,7 +1020,10 @@ class MainWindow(QMainWindow):
         """Handle worker errors and restore UI state."""
         self._close_processing_overlay()
 
-        logger.error("Pipeline execution failed: %s", error_message)
+        print(
+            f"[BATCH] Pipeline error: {error_message}, batch_active={self._is_batch_run_active()}, idx={self._batch_current_index}",
+            flush=True,
+        )
 
         if self._is_batch_run_active():
             self.status_label.setText("Batch item failed; continuing...")
@@ -1035,7 +1088,11 @@ class MainWindow(QMainWindow):
         """Handle mask save completion from worker."""
         self._mask_image_path = mask_path
         self.comparison_controls.set_mask_available(True)
-        self._restore_overlay_if_needed()
+        # During batch processing, defer overlay until _handle_pipeline_success
+        # loads the correct base image — otherwise the mask is applied over the
+        # previous item's still-displayed canvas, causing a dimension mismatch.
+        if not self._is_batch_run_active():
+            self._restore_overlay_if_needed()
 
     def _on_view_mode_changed(self, mode: str):
         """Handle Original/Processed toggle."""
