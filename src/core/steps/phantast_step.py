@@ -1,5 +1,7 @@
 """PHANTAST stem cell confluency detection step."""
 
+import uuid
+
 import cv2
 import numpy as np
 from scipy import ndimage
@@ -395,12 +397,12 @@ def process_phantast(
     mask = morphology_majority(mask, iterations=20)
     mask = morphology_clean(mask)
     confluency = calculate_confluency(mask)
-    print("IMAGE CONFLUENCY", confluency)
     return confluency, mask
 
 
 def process(
     image: np.ndarray,
+    _metadata: dict | None = None,
     sigma: float = 8.0,
     epsilon: float = 0.05,
     contrast_stretch: bool = True,
@@ -412,7 +414,7 @@ def process(
     max_removal_ratio: float = 0.3,
 ) -> np.ndarray:
     """Apply full PHANTAST pipeline and return uint8 binary mask."""
-    _, mask = process_phantast(
+    confluency, mask = process_phantast(
         image,
         sigma=sigma,
         epsilon=epsilon,
@@ -425,6 +427,15 @@ def process(
         hr_remove_small_objects=min_object_area,
         max_removal_ratio=max_removal_ratio,
     )
+    if _metadata is not None:
+        _metadata.update(
+            {
+                "confluency": confluency,
+                "sigma": sigma,
+                "epsilon": epsilon,
+                "uuid": str(uuid.uuid4())[:8],
+            }
+        )
     return mask.astype(np.uint8) * 255
 
 

@@ -30,6 +30,73 @@ def create_green_mask_overlay(binary_mask: np.ndarray) -> np.ndarray:
     return rgba
 
 
+def create_report_header(image: np.ndarray, metadata: dict) -> np.ndarray:
+    """Create an 80px tall header band and stack it on top of the image."""
+    height, width = image.shape[:2]
+
+    # Skip header for small images
+    if width < 400:
+        return image
+
+    # Create 80px tall black header
+    header = np.zeros((80, width, 3), dtype=np.uint8)
+
+    # Left side text
+    # Title: 'Stem Cell Confluency Detector' at (20, 30)
+    cv2.putText(
+        header,
+        "Stem Cell Confluency Detector",
+        (20, 30),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        (255, 255, 255),
+        2,
+    )
+
+    # UUID: f'ID: {metadata['uuid']}' at (20, 58)
+    cv2.putText(
+        header,
+        f"ID: {metadata.get('uuid', 'N/A')}",
+        (20, 58),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.45,
+        (180, 180, 180),
+        1,
+    )
+
+    # Right side text (right-aligned)
+    # Confluency: f'Confluency: {metadata['confluency']:.1f}%' at y=30
+    confluency_text = f"Confluency: {metadata.get('confluency', 0.0):.1f}%"
+    (text_width, _), _ = cv2.getTextSize(
+        confluency_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2
+    )
+    cv2.putText(
+        header,
+        confluency_text,
+        (width - text_width - 20, 30),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        (255, 255, 255),
+        2,
+    )
+
+    # Params: f'\u03c3={metadata['sigma']:.2f}, \u03b5={metadata['epsilon']:.2f}' at y=58
+    params_text = f"\u03c3={metadata.get('sigma', 0.0):.2f}, \u03b5={metadata.get('epsilon', 0.0):.2f}"
+    (text_width, _), _ = cv2.getTextSize(params_text, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+    cv2.putText(
+        header,
+        params_text,
+        (width - text_width - 20, 58),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.45,
+        (180, 180, 180),
+        1,
+    )
+
+    # Vertically stack header on top of image
+    return np.vstack([header, image])
+
+
 class PipelineWorker(QObject):
     """Execute image processing pipeline steps in a worker thread."""
 
@@ -64,6 +131,7 @@ class PipelineWorker(QObject):
                 not in {"input_single_image", "input_image_folder"}
             ]
             processed_image = image
+            report_metadata = {}
 
             if not executable_nodes:
                 self.progress.emit("save", 100)
@@ -80,7 +148,12 @@ class PipelineWorker(QObject):
                         raise ValueError(f"Unknown step type: {step_name}")
 
                     params = self._node_parameters(node)
-                    processed_image = step.process(processed_image, **params)
+                    try:
+                        processed_image = step.process(
+                            processed_image, _metadata=report_metadata, **params
+                        )
+                    except TypeError:
+                        processed_image = step.process(processed_image, **params)
                     if processed_image is None:
                         raise ValueError(f"Step '{step_name}' returned no image")
 
@@ -109,6 +182,8 @@ class PipelineWorker(QObject):
                     self.progress.emit(step_name, int((step_index / total_steps) * 100))
 
             output_image = self._prepare_for_save(processed_image)
+            if report_metadata and output_image.shape[1] >= 400:
+                output_image = create_report_header(output_image, report_metadata)
             if not cv2.imwrite(output_path, output_image):
                 raise OSError(f"Failed to save processed image to: {output_path}")
 
