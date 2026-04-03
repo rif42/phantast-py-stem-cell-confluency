@@ -176,7 +176,7 @@ def clear_registry():
 
 # Auto-import steps to register them in STEP_REGISTRY
 try:
-    from . import clahe_step, grayscale_step, crop_step, phantast_step
+    from . import clahe_step, grayscale_step, crop_step, phantast_step, saturation_step
 except ImportError:
     pass  # Steps may not be available in all environments
 
