@@ -1,0 +1,27 @@
+Task 1: Capture confluency metadata via _metadata parameter
+File: src/core/steps/phantast_step.py
+Date: 2026-04-01
+
+Changes:
+- Added `import uuid` at top of file (line 3)
+- Added `_metadata: dict | None = None` as 2nd positional arg in process() signature
+- Changed `_, mask = process_phantast(...)` to `confluency, mask = process_phantast(...)`
+- Added metadata population block after process_phantast() call
+- Return type unchanged: still np.ndarray
+
+QA Scenario 1 - Metadata populated:
+> python -c "...process(img, _metadata=meta, sigma=8.0, epsilon=0.05)..."
+Output: True True True True (100, 100)
+Result: PASS
+
+QA Scenario 2 - None-safe (no _metadata):
+> python -c "...result = process(img); print(result.shape, result.dtype)..."
+Output: (100, 100) uint8
+Result: PASS
+
+QA Scenario 3 - UUID unique (10 calls):
+> python -c "...uuids = set(); ... print(f'Unique UUIDs: {len(uuids)}/10')"
+Output: Unique UUIDs: 10/10
+Result: PASS
+
+LSP Diagnostics: No errors or warnings found.

@@ -1,0 +1,5 @@
+=== Task 1 QA: None-Safe Scenario ===
+Run: python -c "import sys; sys.path.insert(0,'src'); from core.steps.phantast_step import process; import numpy as np; img = np.random.randint(0,255,(100,100),dtype=np.uint8); result = process(img); print(result.shape, result.dtype)"
+Output: IMAGE CONFLUENCY 100.0
+(100, 100) uint8
+Result: PASS

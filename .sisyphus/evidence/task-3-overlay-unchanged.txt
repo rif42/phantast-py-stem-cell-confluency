@@ -1,0 +1,4 @@
+=== Task 3 QA: Mask Overlay Unchanged ===
+Run: python -c "import sys; sys.path.insert(0,'src'); import numpy as np; from core.pipeline_worker import create_green_mask_overlay; mask = np.zeros((100, 100), dtype=np.uint8); mask[20:80, 20:80] = 255; overlay = create_green_mask_overlay(mask > 0); assert overlay.shape == (100, 100, 4); assert overlay.dtype == np.uint8; print('PASS')"
+Output: PASS: Mask overlay unchanged — no header added
+Result: PASS

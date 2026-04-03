@@ -1,0 +1,4 @@
+=== Task 1 QA: UUID Unique Scenario ===
+Run: python -c "import sys; sys.path.insert(0,'src'); from core.steps.phantast_step import process; import numpy as np; img = np.random.randint(0,255,(100,100),dtype=np.uint8); uuids = set(); [uuids.add(m.get('uuid','')) for _ in range(10) if (m := {}) or True if process(img, _metadata=m) is not None]; print(f'Unique UUIDs: {len(uuids)}/10')"
+Output: Unique UUIDs: 10/10
+Result: PASS

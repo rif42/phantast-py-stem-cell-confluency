@@ -1,0 +1,3 @@
+=== Task 3: Debug Print Removal ===
+Removed: print(f"[BATCH] _finalize called, thread={self._thread}", flush=True) from src/ui/main_window.py line 112
+Result: PASS

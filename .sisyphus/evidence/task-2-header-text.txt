@@ -1,0 +1,5 @@
+=== Task 2 QA: Header Text Rendering ===
+Run: python -c "import sys; sys.path.insert(0,'src'); import numpy as np; from core.pipeline_worker import create_report_header; test_img = np.zeros((600, 800, 3), dtype=np.uint8); metadata = {'confluency': 42.5, 'sigma': 8.0, 'epsilon': 0.05, 'uuid': 'a1b2c3d4'}; result = create_report_header(test_img, metadata); header_region = result[:80, :, :]; has_white_pixels = np.any(header_region > 200); print(f'Has white pixels: {has_white_pixels}'); assert has_white_pixels; print('PASS')"
+Output: Has white pixels: True
+PASS
+Result: PASS

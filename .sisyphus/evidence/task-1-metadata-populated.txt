@@ -1,0 +1,5 @@
+=== Task 1 QA: Metadata Populated Scenario ===
+Run: python -c "import sys; sys.path.insert(0,'src'); from core.steps.phantast_step import process; import numpy as np; img = np.random.randint(0,255,(100,100),dtype=np.uint8); meta = {}; result = process(img, _metadata=meta, sigma=8.0, epsilon=0.05); print('confluency' in meta, 'sigma' in meta, 'epsilon' in meta, 'uuid' in meta, result.shape)"
+Output: IMAGE CONFLUENCY 100.0
+True True True True (100, 100)
+Result: PASS
