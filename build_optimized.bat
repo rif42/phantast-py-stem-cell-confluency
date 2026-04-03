@@ -3,7 +3,7 @@ set "SCRIPT_DIR=%~dp0"
 cd /d "%SCRIPT_DIR%"
 
 echo ============================================================
-echo Building Optimized Simple Phantast App (EXE)
+echo Building PhantastLab App (EXE)
 echo ============================================================
 echo.
 
@@ -26,14 +26,14 @@ echo Building with minimal environment...
 :: --noconsole: Hide console
 :: --exclude-module: Explicitly exclude heavy/unused libs if present in env (just in case)
 python -m PyInstaller --noconsole --onefile --clean ^
-    --name "SimplePhantast_Optimized" ^
+    --name "PhantastLab" ^
     --exclude-module matplotlib ^
     --exclude-module tkinter ^
     --exclude-module torch ^
     --exclude-module tensorflow ^
     --exclude-module pandas ^
     --add-data "phantast_confluency_corrected.py;." ^
-    src/gui/simple_app.py
+    src/main.py
 
 if %ERRORLEVEL% neq 0 (
     echo.
@@ -45,7 +45,7 @@ if %ERRORLEVEL% neq 0 (
 echo.
 echo ============================================================
 echo Build Complete!
-echo Executable is in: dist\SimplePhantast_Optimized.exe
+echo Executable is in: dist\PhantastLab.exe
 echo ============================================================
 echo.
 pause
