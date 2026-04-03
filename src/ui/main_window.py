@@ -109,7 +109,6 @@ class PipelineExecutor(QObject):
 
     def _finalize(self, _payload=None):
         """Stop and clean up worker thread resources."""
-        print(f"[BATCH] _finalize called, thread={self._thread}", flush=True)
         if self._thread is not None:
             self._thread.quit()
             self._thread.wait(3000)

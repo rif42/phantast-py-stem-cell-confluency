@@ -1,0 +1,5 @@
+=== Task 2 QA: Small Image Skips Header ===
+Run: python -c "import sys; sys.path.insert(0,'src'); import numpy as np; from core.pipeline_worker import create_report_header; small_img = np.zeros((200, 300, 3), dtype=np.uint8); metadata = {'confluency': 42.5, 'sigma': 8.0, 'epsilon': 0.05, 'uuid': 'a1b2c3d4'}; result = create_report_header(small_img, metadata); print(f'Input: {small_img.shape}, Output: {result.shape}'); assert result.shape == (200, 300, 3); print('PASS')"
+Output: Input: (200, 300, 3), Output: (200, 300, 3)
+PASS
+Result: PASS

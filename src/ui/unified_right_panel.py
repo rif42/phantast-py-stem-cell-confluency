@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
     QStackedWidget,
     QDoubleSpinBox,
     QSpinBox,
+    QSlider,
     QSizePolicy,
     QListWidget,
     QPushButton,
@@ -443,6 +444,45 @@ class UnifiedRightPanel(QFrame):
             spinbox.setStyleSheet(self._spinbox_style("QSpinBox", is_valid=True))
             layout.addWidget(spinbox)
             input_widget = spinbox
+        elif param_type == "range":
+            # Horizontal slider with value label
+            slider_row = QHBoxLayout()
+            slider_row.setSpacing(8)
+
+            slider = QSlider(Qt.Orientation.Horizontal, parent=container)
+            slider.setObjectName(f"param_input_{param_name}")
+            slider.setMinimum(int(param_min) if param_min is not None else 0)
+            slider.setMaximum(int(param_max) if param_max is not None else 100)
+            slider.setSingleStep(int(param_step) if param_step else 1)
+            slider.setValue(int(current_value))
+
+            value_label = QLabel(f"{int(current_value)}%", parent=container)
+            value_label.setObjectName(f"param_value_{param_name}")
+            value_label.setStyleSheet(
+                "color: #E8EAED; font-size: 13px; min-width: 40px;"
+            )
+            value_label.setAlignment(
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+            )
+
+            # Update label when slider moves
+            def _update_slider_label(val, lbl=value_label, pname=param_name):
+                if pname == "saturation":
+                    lbl.setText(f"{val}%")
+                else:
+                    lbl.setText(str(val))
+
+            slider.valueChanged.connect(_update_slider_label)
+            slider.valueChanged.connect(
+                lambda val, p=param_name, d=param_def: self._on_parameter_changed(
+                    p, val, d
+                )
+            )
+
+            slider_row.addWidget(slider, stretch=1)
+            slider_row.addWidget(value_label)
+            layout.addLayout(slider_row)
+            input_widget = slider
         else:
             # Fallback for other types
             label = QLabel(str(current_value), parent=container)

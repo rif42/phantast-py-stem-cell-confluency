@@ -1,0 +1,39 @@
+QA Evidence - Task: Add report header rendering and integrate into pipeline_worker.py
+
+Date: 2026-04-01
+
+=== Scenario 1: Header function exists and importable ===
+Command: python -c "import sys; sys.path.insert(0,'src'); from core.pipeline_worker import create_report_header; print('Function exists')"
+Result: PASS
+Output: Function exists
+
+=== Scenario 2: Header dimensions correct ===
+Command: python -c "import sys; sys.path.insert(0,'src'); import numpy as np; from core.pipeline_worker import create_report_header; test_img = np.zeros((600, 800, 3), dtype=np.uint8); metadata = {'confluency': 42.5, 'sigma': 8.0, 'epsilon': 0.05, 'uuid': 'a1b2c3d4'}; result = create_report_header(test_img, metadata); print(f'Input: {test_img.shape}, Output: {result.shape}'); assert result.shape == (680, 800, 3); print('PASS')"
+Result: PASS
+Output: Input: (600, 800, 3), Output: (680, 800, 3)
+        PASS
+
+=== Scenario 3: Small image skips header ===
+Command: python -c "import sys; sys.path.insert(0,'src'); import numpy as np; from core.pipeline_worker import create_report_header; small_img = np.zeros((200, 300, 3), dtype=np.uint8); metadata = {'confluency': 42.5, 'sigma': 8.0, 'epsilon': 0.05, 'uuid': 'a1b2c3d4'}; result = create_report_header(small_img, metadata); print(f'Input: {small_img.shape}, Output: {result.shape}'); assert result.shape == (200, 300, 3); print('PASS')"
+Result: PASS
+Output: Input: (200, 300, 3), Output: (200, 300, 3)
+        PASS
+
+=== Scenario 4: Header has text pixels ===
+Command: python -c "import sys; sys.path.insert(0,'src'); import numpy as np; from core.pipeline_worker import create_report_header; test_img = np.zeros((600, 800, 3), dtype=np.uint8); metadata = {'confluency': 42.5, 'sigma': 8.0, 'epsilon': 0.05, 'uuid': 'a1b2c3d4'}; result = create_report_header(test_img, metadata); header_region = result[:80, :, :]; has_white_pixels = np.any(header_region > 200); print(f'Has white pixels: {has_white_pixels}'); assert has_white_pixels; print('PASS')"
+Result: PASS
+Output: Has white pixels: True
+        PASS
+
+=== LSP Diagnostics ===
+Result: No diagnostics found
+
+=== Summary ===
+All 4 QA scenarios passed.
+LSP diagnostics clean (no errors).
+
+Changes made:
+1. Added create_report_header() function after create_green_mask_overlay()
+2. Added report_metadata = {} before step loop in process_pipeline()
+3. Wrapped step.process() in try/except to pass _metadata=report_metadata
+4. Added header creation after _prepare_for_save() but before cv2.imwrite()

@@ -1,0 +1,10 @@
+=== Task 3 QA: End-to-End Header Rendering ===
+Run: Full pipeline simulation with synthetic test image
+Output:
+Metadata: {'confluency': np.float64(100.0), 'sigma': 8.0, 'epsilon': 0.05, 'uuid': '3f61efd5'}
+Mask shape: (400, 600), dtype: uint8
+Prepared shape: (400, 600, 3)
+Final shape: (480, 600, 3)
+Saved and loaded: (480, 600, 3)
+PASS: End-to-end header rendering works
+Result: PASS
