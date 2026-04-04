@@ -30,6 +30,26 @@ def create_green_mask_overlay(binary_mask: np.ndarray) -> np.ndarray:
     return rgba
 
 
+def apply_overlay_to_image(image: np.ndarray, overlay_rgba: np.ndarray) -> np.ndarray:
+    """Alpha-blend an RGBA overlay onto an image, returning BGR result."""
+    # Ensure base is 3-channel BGR
+    if image.ndim == 2:
+        base = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    elif image.ndim == 3 and image.shape[2] == 4:
+        base = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
+    elif image.ndim == 3 and image.shape[2] == 3:
+        base = image.copy()
+    else:
+        base = cv2.cvtColor(image[:, :, 0], cv2.COLOR_GRAY2BGR)
+
+    alpha = overlay_rgba[:, :, 3:4].astype(np.float32) / 255.0
+    blended = (
+        base.astype(np.float32) * (1.0 - alpha)
+        + overlay_rgba[:, :, :3].astype(np.float32) * alpha
+    )
+    return np.clip(blended, 0, 255).astype(np.uint8)
+
+
 def create_report_header(image: np.ndarray, metadata: dict) -> np.ndarray:
     """Create an 80px tall header band and stack it on top of the image."""
     height, width = image.shape[:2]
@@ -39,58 +59,68 @@ def create_report_header(image: np.ndarray, metadata: dict) -> np.ndarray:
         return image
 
     # Create 80px tall black header
-    header = np.zeros((80, width, 3), dtype=np.uint8)
+    header = np.zeros((60, width, 3), dtype=np.uint8)
 
-    # Left side text
-    # Title: 'Stem Cell Confluency Detector' at (20, 30)
+    # Font settings (uniform across both sides)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    title_scale = 0.8
+    subtitle_scale = 0.5
+    title_thickness = 1
+    subtitle_thickness = 1
+
+    # Left side — title
     cv2.putText(
         header,
         "Stem Cell Confluency Detector",
-        (20, 30),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.7,
+        (20, 28),
+        font,
+        title_scale,
         (255, 255, 255),
-        2,
+        title_thickness,
+        cv2.LINE_AA,
     )
 
-    # UUID: f'ID: {metadata['uuid']}' at (20, 58)
+    # Left side — UUID
     cv2.putText(
         header,
         f"ID: {metadata.get('uuid', 'N/A')}",
-        (20, 58),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.45,
+        (20, 52),
+        font,
+        subtitle_scale,
         (180, 180, 180),
-        1,
+        subtitle_thickness,
+        cv2.LINE_AA,
     )
 
-    # Right side text (right-aligned)
-    # Confluency: f'Confluency: {metadata['confluency']:.1f}%' at y=30
+    # Right side — confluency (right-aligned)
     confluency_text = f"Confluency: {metadata.get('confluency', 0.0):.1f}%"
-    (text_width, _), _ = cv2.getTextSize(
-        confluency_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2
-    )
+    (cw, _), _ = cv2.getTextSize(confluency_text, font, title_scale, title_thickness)
     cv2.putText(
         header,
         confluency_text,
-        (width - text_width - 20, 30),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.7,
+        (width - cw - 20, 28),
+        font,
+        title_scale,
         (255, 255, 255),
-        2,
+        title_thickness,
+        cv2.LINE_AA,
     )
 
-    # Params: f'\u03c3={metadata['sigma']:.2f}, \u03b5={metadata['epsilon']:.2f}' at y=58
-    params_text = f"\u03c3={metadata.get('sigma', 0.0):.2f}, \u03b5={metadata.get('epsilon', 0.0):.2f}"
-    (text_width, _), _ = cv2.getTextSize(params_text, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+    # Right side — parameters (ASCII names; OpenCV cannot render Greek)
+    params_text = (
+        f"sigma={metadata.get('sigma', 0.0):.2f}  "
+        f"epsilon={metadata.get('epsilon', 0.0):.2f}"
+    )
+    (pw, _), _ = cv2.getTextSize(params_text, font, subtitle_scale, subtitle_thickness)
     cv2.putText(
         header,
         params_text,
-        (width - text_width - 20, 58),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.45,
+        (width - pw - 20, 52),
+        font,
+        subtitle_scale,
         (180, 180, 180),
-        1,
+        subtitle_thickness,
+        cv2.LINE_AA,
     )
 
     # Vertically stack header on top of image
@@ -148,6 +178,10 @@ class PipelineWorker(QObject):
                         raise ValueError(f"Unknown step type: {step_name}")
 
                     params = self._node_parameters(node)
+                    # Save image state before phantast for overlay compositing
+                    pre_step_image = (
+                        processed_image if step_name == "phantast" else None
+                    )
                     try:
                         processed_image = step.process(
                             processed_image, _metadata=report_metadata, **params
@@ -171,6 +205,12 @@ class PipelineWorker(QObject):
                                 logger.info("Mask saved to %s", mask_path)
                             else:
                                 logger.error("Failed to save mask to %s", mask_path)
+
+                            # Composite green overlay onto pre-step image
+                            # so the processed output shows the green mask
+                            processed_image = apply_overlay_to_image(
+                                pre_step_image, overlay
+                            )
                         except (
                             Exception
                         ) as mask_exc:  # pragma: no cover - graceful path

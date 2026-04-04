@@ -3,6 +3,15 @@
 import sys
 import os
 import logging
+
+
+def _truncate_path(path: str, max_len: int = 20) -> str:
+    """Truncate a path for compact display, keeping the tail end."""
+    if len(path) <= max_len:
+        return path
+    return "..." + path[-(max_len - 3) :]
+
+
 from typing import Optional
 
 # Import our custom components
@@ -570,7 +579,9 @@ class MainWindow(QMainWindow):
                 self.pipeline_controller.remove_node(duplicate_node.id)
 
             active_folder_node.name = "Image Folder"
-            active_folder_node.description = f"Input folder: {absolute_folder_path}"
+            active_folder_node.description = (
+                f"Input: {_truncate_path(absolute_folder_path)}"
+            )
             active_folder_node.icon = "📁"
             active_folder_node.status = "idle"
             active_folder_node.enabled = True
@@ -581,7 +592,7 @@ class MainWindow(QMainWindow):
                 id=str(uuid.uuid4()),
                 type="input_image_folder",
                 name="Image Folder",
-                description=f"Input folder: {absolute_folder_path}",
+                description=f"Input: {_truncate_path(absolute_folder_path)}",
                 icon="📁",
                 status="idle",
                 enabled=True,
@@ -636,12 +647,24 @@ class MainWindow(QMainWindow):
         if step_type_lower in ("clahe", "phantast"):
             saved_params = get_node_parameters(step_type_lower)
 
+        # Lookup step metadata for name, description, and icon
+        try:
+            from src.core.steps import STEP_REGISTRY
+
+            step_meta = STEP_REGISTRY.get(step_type_lower)
+        except Exception:
+            step_meta = None
+
         node = PipelineNode(
             id=str(uuid.uuid4()),
             type=step_type,
-            name=step_type.replace("_", " ").title(),
-            description=step_type.replace("_", " ").title(),
-            icon="⚙️",
+            name=step_meta.name.replace("_", " ").title()
+            if step_meta
+            else step_type.replace("_", " ").title(),
+            description=step_meta.description
+            if step_meta
+            else step_type.replace("_", " ").title(),
+            icon=step_meta.icon if step_meta else "⚙️",
             status="idle",
             enabled=True,
             parameters=saved_params.copy(),
@@ -677,7 +700,7 @@ class MainWindow(QMainWindow):
             id=str(uuid.uuid4()),
             type="input_single_image",
             name="Single Image",
-            description=f"Input: {filename}",
+            description=f"Input: {_truncate_path(filename)}",
             icon="🖼️",
             status="idle",
             enabled=True,

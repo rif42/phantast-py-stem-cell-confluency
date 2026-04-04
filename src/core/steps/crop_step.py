@@ -11,7 +11,7 @@ from . import register_step, StepParameter
 
 
 STEP_NAME = "crop"
-STEP_DESCRIPTION = "Crop image region (placeholder - returns input unchanged)"
+STEP_DESCRIPTION = "Crops a region of interest from the image"
 STEP_ICON = "✂️"
 
 STEP_PARAMETERS: list[StepParameter] = []

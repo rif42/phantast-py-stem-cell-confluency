@@ -11,7 +11,7 @@ from . import register_step, StepParameter
 
 
 STEP_NAME = "clahe"
-STEP_DESCRIPTION = "Contrast Limited Adaptive Histogram Equalization - enhances local contrast in images"
+STEP_DESCRIPTION = "Enhances local contrast via adaptive histogram equalization"
 STEP_ICON = "⚙️"
 
 STEP_PARAMETERS = [

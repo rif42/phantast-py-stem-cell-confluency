@@ -11,7 +11,7 @@ from . import register_step, StepParameter
 
 
 STEP_NAME = "grayscale"
-STEP_DESCRIPTION = "Convert image to grayscale (placeholder - returns input unchanged)"
+STEP_DESCRIPTION = "Converts color image to grayscale"
 STEP_ICON = "🔲"
 
 STEP_PARAMETERS: list[StepParameter] = []

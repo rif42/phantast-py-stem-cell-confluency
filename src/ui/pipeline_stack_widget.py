@@ -138,12 +138,15 @@ class PipelineNodeWidget(QFrame):
         name_label.setObjectName("nodeName")
         desc_label = QLabel(self.node_data.get("description", ""), parent=self)
         desc_label.setObjectName("nodeDesc")
+        desc_label.setSizePolicy(
+            QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        )
 
         details_layout.addWidget(name_label)
         details_layout.addWidget(desc_label)
         layout.addLayout(details_layout, stretch=1)
 
-        # Right Actions
+        # Right Actions — fixed width so they never collapse
         actions_layout = QVBoxLayout()
         actions_layout.setContentsMargins(0, 0, 0, 0)
         actions_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
@@ -165,9 +168,15 @@ class PipelineNodeWidget(QFrame):
         # Colors: INPUT=blue, OUTPUT=orange, PROCESS=default
         badge.setProperty("nodeType", ntype)
         badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        badge.setSizePolicy(
+            QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
+        )
 
         switch = ToggleSwitch(self.node_data.get("enabled", True), parent=self)
         switch.toggled.connect(lambda checked: self.toggled.emit(self.node_id, checked))
+        switch.setSizePolicy(
+            QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        )
 
         actions_layout.addWidget(badge, alignment=Qt.AlignmentFlag.AlignRight)
         actions_layout.addWidget(switch, alignment=Qt.AlignmentFlag.AlignRight)
@@ -271,7 +280,7 @@ class PipelineStackWidget(QFrame):
             for step_name, step_meta in STEP_REGISTRY.items():
                 node_info = {
                     "type": step_name,
-                    "name": step_meta.description,  # Use description as display name
+                    "name": step_meta.name.replace("_", " ").title(),
                     "description": step_meta.description,
                     "icon": step_meta.icon,
                     "parameters": [

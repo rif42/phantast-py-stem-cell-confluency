@@ -7,9 +7,7 @@ from . import register_step, StepParameter
 
 
 STEP_NAME = "saturation"
-STEP_DESCRIPTION = (
-    "Adjust color saturation (0% = grayscale, 100% = original, 200% = double)"
-)
+STEP_DESCRIPTION = "Adjusts color saturation level"
 STEP_ICON = "art"
 
 STEP_PARAMETERS = [
