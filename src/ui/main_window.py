@@ -32,6 +32,7 @@ from PyQt6.QtWidgets import (
     QStatusBar,
 )
 from PyQt6.QtCore import Qt, QObject, QThread, QTimer, pyqtSignal
+from PyQt6.QtGui import QPixmap
 
 # Models
 from src.models.image_model import ImageSessionModel
@@ -203,11 +204,24 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(20, 0, 20, 0)
         layout.setSpacing(16)
 
-        # Left side
-        logo = QLabel("🔬", parent=header)
+        # Left side - Logo
+        logo_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "sccrlogo.png"
+        )
+        logo = QLabel(parent=header)
         logo.setObjectName("appLogo")
+        if os.path.exists(logo_path):
+            pixmap = QPixmap(logo_path)
+            if not pixmap.isNull():
+                scaled = pixmap.scaled(
+                    56,
+                    56,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+                logo.setPixmap(scaled)
 
-        title = QLabel("Phantast Lab", parent=header)
+        title = QLabel("Stem Cell and Cancer Research", parent=header)
         title.setObjectName("appTitle")
 
         layout.addWidget(logo)

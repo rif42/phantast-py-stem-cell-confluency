@@ -330,33 +330,33 @@ class PipelineStackWidget(QFrame):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(0)
 
-        # Project Header (matches design)
-        project_header = QFrame(parent=self)
-        project_header_layout = QVBoxLayout(project_header)
-        project_header_layout.setContentsMargins(0, 0, 0, 0)
-        project_header_layout.setSpacing(2)
-
-        project_title_row = QHBoxLayout()
-        project_title_row.setSpacing(8)
-
-        project_name = QLabel("Untitled Project", parent=project_header)
-        project_name.setStyleSheet("color: #E8EAED; font-size: 14px; font-weight: 600;")
-
-        # Yellow dot indicator
-        status_dot = QLabel("●", parent=project_header)
-        status_dot.setStyleSheet("color: #E8A317; font-size: 10px;")
-
-        project_title_row.addWidget(project_name)
-        project_title_row.addWidget(status_dot)
-        project_title_row.addStretch()
-        project_header_layout.addLayout(project_title_row)
-
-        project_status = QLabel("Draft - Unsaved", parent=project_header)
-        project_status.setStyleSheet("color: #9AA0A6; font-size: 11px;")
-        project_header_layout.addWidget(project_status)
-
-        layout.addWidget(project_header)
-        layout.addSpacing(20)
+        # TODO: Project header — will be reworked later
+        # project_header = QFrame(parent=self)
+        # project_header_layout = QVBoxLayout(project_header)
+        # project_header_layout.setContentsMargins(0, 0, 0, 0)
+        # project_header_layout.setSpacing(2)
+        #
+        # project_title_row = QHBoxLayout()
+        # project_title_row.setSpacing(8)
+        #
+        # project_name = QLabel("Untitled Project", parent=project_header)
+        # project_name.setStyleSheet("color: #E8EAED; font-size: 14px; font-weight: 600;")
+        #
+        # # Yellow dot indicator
+        # status_dot = QLabel("●", parent=project_header)
+        # status_dot.setStyleSheet("color: #E8A317; font-size: 10px;")
+        #
+        # project_title_row.addWidget(project_name)
+        # project_title_row.addWidget(status_dot)
+        # project_title_row.addStretch()
+        # project_header_layout.addLayout(project_title_row)
+        #
+        # project_status = QLabel("Draft - Unsaved", parent=project_header)
+        # project_status.setStyleSheet("color: #9AA0A6; font-size: 11px;")
+        # project_header_layout.addWidget(project_status)
+        #
+        # layout.addWidget(project_header)
+        # layout.addSpacing(20)
 
         # Pipeline Stack Header
         header_layout = QHBoxLayout()
