@@ -81,12 +81,10 @@ class UnifiedRightPanel(QFrame):
         header = QLabel("PROPERTIES", parent=page)
         header.setObjectName("panelHeader")
         header.setStyleSheet("""
-            color: #9AA0A6;
-            font-size: 11px;
-            font-weight: bold;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            color: #E8EAED; 
+            font-size: 13px; 
+            font-weight: 700; 
+            letter-spacing: 1px;
         """)
         layout.addWidget(header)
 
@@ -225,12 +223,10 @@ class UnifiedRightPanel(QFrame):
         self.prop_header = QLabel("PROPERTIES", parent=scroll_content)
         self.prop_header.setObjectName("panelHeader")
         self.prop_header.setStyleSheet("""
-            color: #9AA0A6;
-            font-size: 11px;
-            font-weight: bold;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            color: #E8EAED; 
+            font-size: 13px; 
+            font-weight: 700; 
+            letter-spacing: 1px;
         """)
         self.properties_layout.addWidget(self.prop_header)
 
@@ -247,17 +243,18 @@ class UnifiedRightPanel(QFrame):
         self.node_title_label.setStyleSheet(
             "color: #E8EAED; font-size: 14px; font-weight: bold;"
         )
+        self.node_title_label.setWordWrap(True)
         title_layout.addWidget(self.node_title_label)
         title_layout.addStretch()
 
         self.properties_layout.addWidget(self.title_container)
-        self.properties_layout.addSpacing(24)
+        self.properties_layout.addSpacing(4)
 
         # Content area for parameters
         self.params_container = QWidget(parent=scroll_content)
         self.params_layout = QVBoxLayout(self.params_container)
         self.params_layout.setContentsMargins(0, 0, 0, 0)
-        self.params_layout.setSpacing(16)
+        self.params_layout.setSpacing(12)
 
         self.properties_layout.addWidget(self.params_container)
         self.properties_layout.addSpacing(8)
@@ -346,6 +343,7 @@ class UnifiedRightPanel(QFrame):
             desc_label.setStyleSheet("color: #9AA0A6; font-size: 12px;")
             desc_label.setWordWrap(True)
             self.params_layout.addWidget(desc_label)
+            self.params_layout.addSpacing(1)
 
         # Find step definition for parameter schema
         node_type = node_data.get("type", "")
@@ -355,9 +353,23 @@ class UnifiedRightPanel(QFrame):
                 (n for n in available_nodes if n.get("type") == node_type), None
             )
 
+        # Make PHANTAST title bigger/bolder than param titles
+        if node_type == "phantast":
+            self.node_title_label.setStyleSheet(
+                "font-size: 20px; font-weight: 900; letter-spacing: 1px;"
+            )
+        else:
+            self.node_title_label.setStyleSheet("font-size: 16px; font-weight: 700;")
+
         # Generate parameter widgets
         if step_def and step_def.get("parameters"):
-            for param in step_def["parameters"]:
+            # Filter params for phantast node — only show sigma and epsilon
+            params_to_show = step_def["parameters"]
+            if node_type == "phantast":
+                allowed = {"sigma", "epsilon"}
+                params_to_show = [p for p in params_to_show if p.get("name") in allowed]
+
+            for param in params_to_show:
                 self._add_parameter_widget(param)
         elif self.current_node_params:
             # Fallback: show current params without schema
@@ -394,15 +406,17 @@ class UnifiedRightPanel(QFrame):
         # Create container
         container = QFrame(parent=self.params_container)
         container.setObjectName(f"param_container_{param_name}")
-        container.setStyleSheet("margin-bottom: 16px;")
+        container.setStyleSheet("margin-bottom: 12px;")
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
 
-        # Parameter name label with validation status
+        # Parameter name label — bigger, bolder, with tooltip for description
         name_label = QLabel(param_name.replace("_", " ").title(), parent=container)
         name_label.setObjectName(f"param_label_{param_name}")
-        name_label.setStyleSheet("color: #E8EAED; font-size: 13px; font-weight: 500;")
+        name_label.setStyleSheet("color: #E8EAED; font-size: 15px; font-weight: 700;")
+        if param_desc:
+            name_label.setToolTip(param_desc)
         layout.addWidget(name_label)
 
         # Create appropriate widget based on type
@@ -498,12 +512,7 @@ class UnifiedRightPanel(QFrame):
                 "definition": param_def,
             }
 
-        # Description text
-        if param_desc:
-            desc_label = QLabel(param_desc, parent=container)
-            desc_label.setStyleSheet("color: #9AA0A6; font-size: 11px;")
-            desc_label.setWordWrap(True)
-            layout.addWidget(desc_label)
+        # Description moved to tooltip on name_label above — no inline description
 
         self.params_layout.addWidget(container)
 

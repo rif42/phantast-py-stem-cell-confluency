@@ -135,6 +135,11 @@ class PipelineNodeWidget(QFrame):
         details_layout.setContentsMargins(0, 0, 0, 0)
         details_layout.setSpacing(2)
 
+        # Title row: name + help icon
+        title_row = QHBoxLayout()
+        title_row.setContentsMargins(0, 0, 0, 0)
+        title_row.setSpacing(4)
+
         name_label = QLabel(self.node_data.get("name", "Process Node"), parent=self)
         name_label.setObjectName("nodeName")
         name_label.setStyleSheet("""
@@ -148,14 +153,33 @@ class PipelineNodeWidget(QFrame):
         description = self.node_data.get("description", "")
         if description:
             name_label.setToolTip(description)
+            # Add tiny question mark to indicate hoverable
+            help_icon = QLabel("?", parent=self)
+            help_icon.setFixedSize(14, 14)
+            help_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            help_icon.setStyleSheet("""
+                color: #9AA0A6;
+                font-size: 9px;
+                font-weight: 700;
+                background-color: #2D3336;
+                border-radius: 7px;
+            """)
+            help_icon.setToolTip(description)
+            help_icon.setCursor(Qt.CursorShape.PointingHandCursor)
+            title_row.addWidget(name_label)
+            title_row.addWidget(help_icon)
+            title_row.addStretch()
+        else:
+            title_row.addWidget(name_label)
+            title_row.addStretch()
 
-        details_layout.addWidget(name_label)
+        details_layout.addLayout(title_row)
         layout.addLayout(details_layout, stretch=1)
 
         # Right Actions — fixed width so they never collapse
         actions_layout = QVBoxLayout()
         actions_layout.setContentsMargins(0, 0, 0, 0)
-        actions_layout.setSpacing(6)
+        actions_layout.setSpacing(4)
         actions_layout.setAlignment(
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
         )
