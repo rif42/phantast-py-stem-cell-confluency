@@ -13,6 +13,7 @@ from . import StepParameter, register_step
 STEP_NAME = "phantast"
 STEP_DESCRIPTION = "Detects stem cell confluency using PHANTAST"
 STEP_ICON = "🔬"
+STEP_CATEGORY = "segmentation"
 
 STEP_PARAMETERS = [
     StepParameter(

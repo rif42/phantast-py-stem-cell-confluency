@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
     QMenu,
     QDoubleSpinBox,
     QSpinBox,
+    QWidgetAction,
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QMimeData
 from PyQt6.QtGui import QIcon, QPainter, QColor, QPen, QDrag
@@ -112,10 +113,10 @@ class PipelineNodeWidget(QFrame):
 
     def init_ui(self):
         self.setObjectName("nodeCardSelected" if self.is_selected else "nodeCard")
-        self.setFixedHeight(72)
+        self.setFixedHeight(64)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setContentsMargins(12, 8, 12, 8)
         layout.setSpacing(12)
 
         # Left Icon
@@ -136,36 +137,52 @@ class PipelineNodeWidget(QFrame):
 
         name_label = QLabel(self.node_data.get("name", "Process Node"), parent=self)
         name_label.setObjectName("nodeName")
-        desc_label = QLabel(self.node_data.get("description", ""), parent=self)
-        desc_label.setObjectName("nodeDesc")
-        desc_label.setSizePolicy(
-            QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        )
+        name_label.setStyleSheet("""
+            #nodeName {
+                color: #E8EAED;
+                font-size: 15px;
+                font-weight: 600;
+            }
+        """)
+        # Show description as tooltip on hover
+        description = self.node_data.get("description", "")
+        if description:
+            name_label.setToolTip(description)
 
         details_layout.addWidget(name_label)
-        details_layout.addWidget(desc_label)
         layout.addLayout(details_layout, stretch=1)
 
         # Right Actions — fixed width so they never collapse
         actions_layout = QVBoxLayout()
         actions_layout.setContentsMargins(0, 0, 0, 0)
-        actions_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
+        actions_layout.setSpacing(6)
+        actions_layout.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
 
-        # Determine badge text and color based on type
+        # Determine badge text and color based on type/category
         ntype = self.node_data.get("type", "")
+        ncategory = self.node_data.get("category", "")
+
+        # Category color mapping for badges
+        cat_badge_config = {
+            "image_processing": ("PREPROCESS", "#3B82F6"),
+            "segmentation": ("SEGMENT", "#E8A317"),
+        }
+
         badge_text = "PROCESS"
-        badge_color = "#E8A317"  # default orangeish
+        badge_color = "#9AA0A6"  # default gray
         if ntype == "input":
             badge_text = "INPUT"
             badge_color = "#3B82F6"
         elif ntype == "algorithm":
             badge_text = "OUTPUT"
             badge_color = "#E8A317"
+        elif ncategory in cat_badge_config:
+            badge_text, badge_color = cat_badge_config[ncategory]
 
         badge = QLabel(badge_text, parent=self)
         badge.setObjectName("nodeBadge")
-        # Badge color is handled via type-based logic in stylesheet
-        # Colors: INPUT=blue, OUTPUT=orange, PROCESS=default
         badge.setProperty("nodeType", ntype)
         badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
         badge.setSizePolicy(
@@ -277,12 +294,14 @@ class PipelineStackWidget(QFrame):
             from src.core.steps import STEP_REGISTRY
 
             self.available_nodes = []
+            self._type_to_category: dict[str, str] = {}
             for step_name, step_meta in STEP_REGISTRY.items():
                 node_info = {
                     "type": step_name,
                     "name": step_meta.name.replace("_", " ").title(),
                     "description": step_meta.description,
                     "icon": step_meta.icon,
+                    "category": step_meta.category,
                     "parameters": [
                         {
                             "name": p.name,
@@ -297,12 +316,14 @@ class PipelineStackWidget(QFrame):
                     ],
                 }
                 self.available_nodes.append(node_info)
+                self._type_to_category[step_name] = step_meta.category
         except Exception:
             # Fallback if registry not available
             self.available_nodes = []
+            self._type_to_category = {}
 
     def init_ui(self):
-        self.setMinimumWidth(280)
+        self.setMinimumWidth(300)
         self.setObjectName("leftPanel")
 
         layout = QVBoxLayout(self)
@@ -341,9 +362,9 @@ class PipelineStackWidget(QFrame):
         header_layout = QHBoxLayout()
         header = QLabel("PIPELINE STACK", parent=self)
         header.setStyleSheet("""
-            color: #9AA0A6; 
-            font-size: 10px; 
-            font-weight: 600; 
+            color: #E8EAED; 
+            font-size: 13px; 
+            font-weight: 700; 
             letter-spacing: 1px;
         """)
 
@@ -367,27 +388,77 @@ class PipelineStackWidget(QFrame):
             }
         """)
 
-        # Menu for Add Button
+        # Menu for Add Button — categorized with color-coded sections
         self.add_menu = QMenu(self)
+
+        # Category configuration: display name → color
+        category_config = {
+            "image_processing": ("IMAGE PROCESSING", "#3B82F6"),
+            "segmentation": ("SEGMENTATION", "#E8A317"),
+        }
+
+        # Group available nodes by category (preserving registration order)
+        from collections import OrderedDict
+
+        grouped: "OrderedDict[str, list]" = OrderedDict()
+        for node in self.available_nodes:
+            cat = node.get("category", "image_processing")
+            grouped.setdefault(cat, []).append(node)
+
+        first_section = True
+        for cat_key, nodes in grouped.items():
+            display_name, color = category_config.get(
+                cat_key, (cat_key.replace("_", " ").upper(), "#9AA0A6")
+            )
+
+            # Add separator between sections
+            if not first_section:
+                self.add_menu.addSeparator()
+            first_section = False
+
+            # Add category header using QWidgetAction for full color control
+            header_widget = QLabel(f"  {display_name}", parent=self)
+            header_widget.setStyleSheet(f"""
+                color: {color};
+                font-size: 10px;
+                font-weight: 700;
+                letter-spacing: 1px;
+                padding: 10px 12px 4px 12px;
+                background: transparent;
+            """)
+            header_action = QWidgetAction(self)
+            header_action.setDefaultWidget(header_widget)
+            self.add_menu.addAction(header_action)
+
+            # Add step items under this category
+            for node in nodes:
+                action = self.add_menu.addAction(
+                    f"    {node.get('icon', '')}  {node.get('name')}"
+                )
+                action.setData(node.get("type"))
+
         self.add_menu.setStyleSheet("""
             QMenu {
                 background-color: #1E2224;
                 border: 1px solid #2D3336;
                 border-radius: 6px;
-                padding: 4px;
+                padding: 6px 4px;
             }
             QMenu::item {
-                padding: 8px 16px;
+                padding: 7px 20px;
                 color: #E8EAED;
+                font-size: 13px;
             }
             QMenu::item:selected {
                 background-color: #2D3336;
                 border-radius: 4px;
             }
+            QMenu::separator {
+                height: 1px;
+                background: #2D3336;
+                margin: 4px 12px;
+            }
         """)
-        for node in self.available_nodes:
-            action = self.add_menu.addAction(node.get("name"))
-            action.setData(node.get("type"))
 
         self.add_button.setMenu(self.add_menu)
         self.add_menu.triggered.connect(
@@ -456,23 +527,27 @@ class PipelineStackWidget(QFrame):
             node_widget.toggled.connect(self.toggle_node.emit)
             node_widget.deleted.connect(self.delete_node.emit)
 
-            # Dynamic border styling based on type
+            # Dynamic border styling based on type and category
             ntype = node.get("type", "")
+            ncategory = node.get("category", "") or self._type_to_category.get(
+                ntype, ""
+            )
+
+            # Category color mapping
+            cat_colors = {
+                "image_processing": ("#3B82F6", "#60A5FA"),  # blue / lighter blue
+                "segmentation": ("#E8A317", "#FCD34D"),  # yellow / lighter yellow
+            }
+
             border_color = "#2D3336"  # default
             if is_selected:
-                border_color = "#00B884"  # selected process
+                border_color = "#00B884"  # selected accent
             elif ntype == "input":
                 border_color = "#3B82F6"  # blue for input
-                if is_selected:
-                    border_color = "#60A5FA"
             elif ntype == "algorithm":
                 border_color = "#E8A317"  # orange for output
-                if is_selected:
-                    border_color = "#FCD34D"
-            elif ntype == "phantast":
-                border_color = "#FFD700"  # gold for PHANTAST (special node)
-                if is_selected:
-                    border_color = "#FFE55C"
+            elif ncategory in cat_colors:
+                border_color = cat_colors[ncategory][0]  # category color
 
             node_widget.setStyleSheet(f"""
                 #nodeCard, #nodeCardSelected {{

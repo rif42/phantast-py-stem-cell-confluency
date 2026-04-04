@@ -13,6 +13,7 @@ from . import register_step, StepParameter
 STEP_NAME = "clahe"
 STEP_DESCRIPTION = "Enhances local contrast via adaptive histogram equalization"
 STEP_ICON = "⚙️"
+STEP_CATEGORY = "image_processing"
 
 STEP_PARAMETERS = [
     StepParameter(

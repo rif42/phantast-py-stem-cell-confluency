@@ -44,6 +44,7 @@ class StepMetadata:
         icon: Emoji or icon string for UI
         parameters: List of StepParameter definitions
         process: The processing function
+        category: Category for grouping in UI (e.g. "image_processing", "segmentation")
     """
 
     name: str
@@ -51,6 +52,7 @@ class StepMetadata:
     icon: str
     parameters: List[StepParameter]
     process: Callable[..., np.ndarray]
+    category: str = "image_processing"
 
 
 # Global registry of processing steps
@@ -119,6 +121,7 @@ def register_step(
         )
         step_icon = icon or getattr(module, "STEP_ICON", "⚙️")
         step_params = parameters or getattr(module, "STEP_PARAMETERS", [])
+        step_category = getattr(module, "STEP_CATEGORY", "image_processing")
 
         # Create metadata
         metadata = StepMetadata(
@@ -127,6 +130,7 @@ def register_step(
             icon=step_icon,
             parameters=step_params,
             process=func,
+            category=step_category,
         )
 
         # Register

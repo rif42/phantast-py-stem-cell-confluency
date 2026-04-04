@@ -13,6 +13,7 @@ from . import register_step, StepParameter
 STEP_NAME = "crop"
 STEP_DESCRIPTION = "Crops a region of interest from the image"
 STEP_ICON = "✂️"
+STEP_CATEGORY = "image_processing"
 
 STEP_PARAMETERS: list[StepParameter] = []
 

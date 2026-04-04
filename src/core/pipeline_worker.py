@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import logging
 from typing import Any, Iterable, Mapping
 
@@ -50,6 +51,10 @@ def apply_overlay_to_image(image: np.ndarray, overlay_rgba: np.ndarray) -> np.nd
     return np.clip(blended, 0, 255).astype(np.uint8)
 
 
+# Logo reserved width in the header (logo scales to ~90px, reserve 100px)
+LOGO_RESERVED_WIDTH = 100
+
+
 def create_report_header(image: np.ndarray, metadata: dict) -> np.ndarray:
     """Create an 80px tall header band and stack it on top of the image."""
     height, width = image.shape[:2]
@@ -58,7 +63,7 @@ def create_report_header(image: np.ndarray, metadata: dict) -> np.ndarray:
     if width < 400:
         return image
 
-    # Create 80px tall black header
+    # Create 60px tall black header
     header = np.zeros((60, width, 3), dtype=np.uint8)
 
     # Font settings (uniform across both sides)
@@ -68,11 +73,12 @@ def create_report_header(image: np.ndarray, metadata: dict) -> np.ndarray:
     title_thickness = 1
     subtitle_thickness = 1
 
-    # Left side — title
+    # Left side — title (offset to avoid logo)
+    left_x = LOGO_RESERVED_WIDTH + 16
     cv2.putText(
         header,
         "Stem Cell Confluency Detector",
-        (20, 28),
+        (left_x, 28),
         font,
         title_scale,
         (255, 255, 255),
@@ -80,11 +86,11 @@ def create_report_header(image: np.ndarray, metadata: dict) -> np.ndarray:
         cv2.LINE_AA,
     )
 
-    # Left side — UUID
+    # Left side — UUID (offset to avoid logo)
     cv2.putText(
         header,
         f"ID: {metadata.get('uuid', 'N/A')}",
-        (20, 52),
+        (left_x, 52),
         font,
         subtitle_scale,
         (180, 180, 180),
@@ -125,6 +131,81 @@ def create_report_header(image: np.ndarray, metadata: dict) -> np.ndarray:
 
     # Vertically stack header on top of image
     return np.vstack([header, image])
+
+
+def _get_logo_path() -> str:
+    """Resolve path to sccrlogo.png (dev and PyInstaller compatible)."""
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        return os.path.join(str(meipass), "sccrlogo.png")
+    # In dev: project root (2 levels up from src/core/)
+    return os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "sccrlogo.png")
+    )
+
+
+def overlay_logo(image: np.ndarray) -> np.ndarray:
+    """Overlay sccrlogo.png on the top-left corner of the report header.
+
+    The logo is scaled to fit within the 60px header height with padding,
+    placed on the left side. Text elements are offset to the right to avoid
+    overlapping with the logo.
+    If the logo file is missing or the image is too small, the original
+    image is returned unchanged.
+    """
+    logo_path = _get_logo_path()
+    if not os.path.isfile(logo_path):
+        logger.warning("Logo not found at %s, skipping overlay", logo_path)
+        return image
+
+    logo = cv2.imread(logo_path, cv2.IMREAD_UNCHANGED)
+    if logo is None:
+        return image
+
+    height, width = image.shape[:2]
+
+    # Skip overlay on images without sufficient width for header
+    if width < 400:
+        return image
+
+    # Scale logo to fit within the 60px header height with padding
+    header_height = 60
+    logo_target_height = header_height - 16  # 8px top + 8px bottom padding
+    scale = logo_target_height / logo.shape[0]
+    logo_target_width = int(logo.shape[1] * scale)
+
+    # Ensure logo doesn't exceed reasonable width
+    if logo_target_width > width // 3:
+        scale = (width // 3) / logo.shape[1]
+        logo_target_height = int(logo.shape[0] * scale)
+        logo_target_width = int(logo.shape[1] * scale)
+
+    logo_resized = cv2.resize(
+        logo, (logo_target_width, logo_target_height), interpolation=cv2.INTER_AREA
+    )
+
+    # Place logo on the left side of the header, vertically centered
+    pad = 8
+    y1 = pad
+    y2 = pad + logo_target_height
+    x1 = pad
+    x2 = pad + logo_target_width
+
+    if y2 > height or x2 > width:
+        return image
+
+    # Alpha blending for RGBA logo
+    if logo_resized.ndim == 3 and logo_resized.shape[2] == 4:
+        alpha = logo_resized[:, :, 3:4].astype(np.float32) / 255.0
+        roi = image[y1:y2, x1:x2].astype(np.float32)
+        blended = (
+            roi * (1.0 - alpha) + logo_resized[:, :, :3].astype(np.float32) * alpha
+        )
+        image[y1:y2, x1:x2] = np.clip(blended, 0, 255).astype(np.uint8)
+    else:
+        image[y1:y2, x1:x2] = logo_resized[:, :, :3]
+
+    return image
 
 
 class PipelineWorker(QObject):
@@ -224,6 +305,7 @@ class PipelineWorker(QObject):
             output_image = self._prepare_for_save(processed_image)
             if report_metadata and output_image.shape[1] >= 400:
                 output_image = create_report_header(output_image, report_metadata)
+            output_image = overlay_logo(output_image)
             if not cv2.imwrite(output_path, output_image):
                 raise OSError(f"Failed to save processed image to: {output_path}")
 

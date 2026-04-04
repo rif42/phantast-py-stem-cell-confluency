@@ -416,6 +416,9 @@ class MainWindow(QMainWindow):
         self.splitter.setStretchFactor(1, 1)
         self.splitter.setStretchFactor(2, 0)
 
+        # Set initial sizes to ensure left panel shows full node width
+        self.splitter.setSizes([320, 800, 280])
+
         content_layout.addWidget(self.splitter)
         self.main_layout.addWidget(self.content_container)
 

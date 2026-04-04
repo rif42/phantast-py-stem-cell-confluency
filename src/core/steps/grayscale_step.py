@@ -13,6 +13,7 @@ from . import register_step, StepParameter
 STEP_NAME = "grayscale"
 STEP_DESCRIPTION = "Converts color image to grayscale"
 STEP_ICON = "🔲"
+STEP_CATEGORY = "image_processing"
 
 STEP_PARAMETERS: list[StepParameter] = []
 
