@@ -44,7 +44,8 @@ Implement a killswitch that gates PhantastLab startup by checking local flags an
 7. `tests/services/test_killswitch.py` — Comprehensive unit tests
 8. `tests/services/test_hw_fingerprint.py` — Fingerprint tests
 9. `tests/services/test_killswitch_persistence.py` — Persistence tests
-10. Updated `PhantastLab.spec` — PyInstaller bytecode encryption
+10. `tests/mock_server.py` — Local HTTP mock server for QA scenarios
+11. Updated `PhantastLab.spec` — PyInstaller hardening (strip + optimize)
 11. Updated `src/main.py` — Startup hook
 
 ### Definition of Done (verifiable conditions with commands)
@@ -76,7 +77,7 @@ pyinstaller PhantastLab.spec
 
 ### Must NOT Have (guardrails, AI slop patterns, scope boundaries)
 - NO UI elements, dialogs, toast notifications, or windows
-- NO new third-party dependencies (stdlib only)
+- NO new third-party dependencies in the Python client (stdlib only). The `server/` directory is a separate Cloudflare Worker project and may have its own JS dev dependencies (wrangler) — these are NOT counted as client dependencies.
 - NO business logic changes to existing modules
 - NO PyQt imports in `hw_fingerprint.py` or `killswitch_obfuscation.py` (must be pure Python)
 - NO retry loops or exponential backoff on network calls
@@ -158,7 +159,7 @@ pyinstaller PhantastLab.spec
   3. Parse the `id` query parameter from the URL
   4. Look up the machine ID in a KV namespace (or hardcoded allowlist for MVP)
   5. Return JSON: `{"status": "ok"|"kill"|"unkill", "ts": <unix_timestamp>, "sig": "<hmac_hex>"}`
-  6. Sign the response body with HMAC-SHA256 using `env.HMAC_SECRET`
+  6. Sign the response: HMAC-SHA256 of `f"{status}:{timestamp}"` using `env.HMAC_SECRET`
   7. Include CORS headers for development testing
   8. Create `server/wrangler.toml` with worker config (name, compatibility_date, KV binding)
   9. Create `server/package.json` with wrangler dev dependency
@@ -184,7 +185,7 @@ pyinstaller PhantastLab.spec
   - [ ] `server/wrangler.toml` exists with valid Cloudflare Worker config
   - [ ] `wrangler dev` starts without errors (local dev server)
   - [ ] `curl "http://localhost:8787/check?id=test123"` returns JSON with `status`, `ts`, and `sig` fields
-  - [ ] Response signature is valid HMAC-SHA256 of `status + ts` string
+  - [ ] Response signature is valid HMAC-SHA256 of `f"{status}:{ts}"` string
 
   **QA Scenarios** (MANDATORY):
   ```
@@ -220,23 +221,29 @@ pyinstaller PhantastLab.spec
      - Falls back to `platform.node()` for hostname if MAC is unreliable (uuid.getnode() returns a random value starting with specific bit patterns — check if the returned value's multicast bit is set, which indicates random)
      - Gets disk serial via `subprocess.run(["wmic", "diskdrive", "get", "serialnumber"])` on Windows, with error handling for non-Windows
      - Concatenates: `f"{mac}:{disk_serial}:{hostname}"` and returns SHA-256 hex digest
-  3. Implement `persist_machine_id(machine_id: str) -> None` that writes the ID to a dedicated QSettings key (via the existing settings service pattern). This should ONLY be called from the killswitch module after settings are initialized.
-  4. Implement `get_persisted_machine_id() -> str | None` that reads the previously persisted ID
+  3. Implement `persist_machine_id(machine_id: str) -> None` that writes the ID to a hidden file in AppData:
+     - Path: `os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), ".phantastlab_mid")`
+     - Write the machine ID as plain text to this file
+     - Wrap in try/except — persistence failure should not crash the app
+  4. Implement `get_persisted_machine_id() -> str | None` that reads the ID from the AppData file:
+     - If file exists and content is a valid 64-char hex string, return it
+     - Otherwise return None
   5. Implement `get_or_create_machine_id() -> str` — returns persisted ID if exists, else generates + persists + returns new one
-  6. Handle edge cases: `uuid.getnode()` returning random, `wmic` not available, subprocess errors
+  6. Handle edge cases: `uuid.getnode()` returning random, `wmic` not available, subprocess errors, file permission errors
 
-  **Must NOT do**: No PyQt imports in this file. No network calls. No writing to files directly (use settings_service pattern). Must be CLI-testable.
+  **Why file-based persistence (not QSettings)**: The existing `SettingsService` (`src/services/settings_service.py`) only exposes node-parameter methods (`get_node_parameters`, `save_node_parameter`, etc.) — there is no generic key/value API. Adding one would require modifying both `SettingsInterface` and `SettingsService`, violating the "no existing business logic changes" scope boundary. A simple AppData file avoids this entirely.
+
+  **Must NOT do**: No PyQt imports in this file. No network calls. Must not use QSettings or settings_service. Must be CLI-testable.
 
   **Recommended Agent Profile**:
   - Category: `quick` — Reason: Small utility module, well-defined interface
-  - Skills: [`numpy-best-practices`] — No, not needed
+  - Skills: [] — No special skills needed
   - Omitted: [`pyqt6-ui-development-rules`] — No PyQt used here
 
   **Parallelization**: Can Parallel: YES | Wave 1 | Blocks: [5, 7] | Blocked By: []
 
   **References**:
-  - Settings singleton pattern: `src/services/settings_service.py:23-36` — QSettings("PhantastLab", "PhantastLab") singleton
-  - Settings interface: `src/models/settings_interface.py:11-35` — Protocol-based abstraction
+  - AppData path pattern: `os.environ.get("APPDATA", os.path.expanduser("~"))` — same pattern used in Task 3 for kill flags
   - MAC address via uuid: `uuid.getnode()` returns 48-bit int, check multicast bit for reliability
   - Disk serial on Windows: `wmic diskdrive get serialnumber` — parse stdout, handle encoding issues
   - SHA-256: `hashlib.sha256(f"{mac}:{disk}:{host}".encode()).hexdigest()`
@@ -244,7 +251,7 @@ pyinstaller PhantastLab.spec
   **Acceptance Criteria** (agent-executable only):
   - [ ] `pytest tests/services/test_hw_fingerprint.py -v` — all tests pass
   - [ ] `ruff check src/services/hw_fingerprint.py` — no errors
-  - [ ] No PyQt6 imports found in the file: `grep -c "PyQt6" src/services/hw_fingerprint.py` returns 0
+  - [ ] No PyQt6 imports found in the file: `Select-String -Path "src/services/hw_fingerprint.py" -Pattern "PyQt6"` returns no matches
   - [ ] `get_or_create_machine_id()` returns a 64-char lowercase hex string
 
   **QA Scenarios** (MANDATORY):
@@ -442,7 +449,8 @@ pyinstaller PhantastLab.spec
        - anything else: return True (row 9)
      ```
   3. Implement `_check_server(machine_id: str) -> dict | None`:
-     - Build URL: `f"https://<obfuscated-domain>/check?id={machine_id}"`
+     - Build URL: `f"{base_url}/check?id={machine_id}"`
+     - `base_url` is determined by: `os.environ.get("KILLSWITCH_URL_OVERRIDE") or deobfuscate_string(OBFUSCATED_URL, key)` — this allows tests and QA to override the endpoint without modifying source code
      - Use `urllib.request.urlopen()` with 2-second timeout
      - Parse JSON response body
      - Return parsed dict or None on any error (timeout, DNS failure, HTTP error, JSON parse error)
@@ -534,17 +542,29 @@ pyinstaller PhantastLab.spec
 
 - [ ] 6. Killswitch Integration Tests
 
-  **What to do**: Create comprehensive integration tests in `tests/services/test_killswitch_integration.py` that test the full flow end-to-end with mocked server. Implementation:
+  **What to do**: Create comprehensive integration tests in `tests/services/test_killswitch_integration.py` that test the full flow end-to-end with a mock HTTP server. Implementation:
   1. Create `tests/services/test_killswitch_integration.py`
-  2. Test full startup flow: `is_startup_allowed()` → correct result for each decision matrix row
-  3. Test machine ID integration: verify `get_or_create_machine_id()` is called exactly once
-  4. Test persistence integration: verify flags are set/cleared in all backends after evaluator runs
-  5. Test HMAC integration: verify correct signature verification with real (test) secret
-  6. Test network error scenarios: DNS failure, connection refused, SSL error, empty response, invalid JSON
-  7. Test replay protection: verify old timestamps (>5 min) are rejected
-  8. Use `pytest-mock` fixtures for all external dependencies
+  2. Create `tests/conftest.py` (if not exists) — add sys.path bootstrapping at the top:
+     ```python
+     import sys
+     import os
+     sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+     ```
+     This fixes the existing baseline failure where `tests/test_folder_explorer.py` cannot import `src` module. This is a minimal fix that does not alter any test logic.
+     - Use `pytest-mock` + `unittest.mock` to mock `urllib.request.urlopen`
+     - For real HTTP testing: create a `tests/mock_server.py` — a tiny `http.server.HTTPServer` that returns canned HMAC-signed responses
+     - The mock server reads the desired response from an env var or class variable (e.g., `MOCK_RESPONSE="ok"`)
+  3. Use `KILLSWITCH_URL_OVERRIDE` env var (added in Task 5) to point the evaluator at the mock server:
+     - Set `KILLSWITCH_URL_OVERRIDE=http://localhost:18765` before importing killswitch
+  4. Test full startup flow: `is_startup_allowed()` → correct result for each decision matrix row
+  5. Test machine ID integration: verify `get_or_create_machine_id()` is called exactly once
+  6. Test persistence integration: verify flags are set/cleared in all backends after evaluator runs
+  7. Test HMAC integration: verify correct signature verification with real (test) secret
+  8. Test network error scenarios: DNS failure, connection refused, SSL error, empty response, invalid JSON
+  9. Test replay protection: verify old timestamps (>5 min) are rejected
+  10. Use `pytest-mock` fixtures for all external dependencies
 
-  **Must NOT do**: No real network calls. No PyQt app initialization needed (mock QSettings).
+  **Must NOT do**: No real external network calls. No PyQt app initialization needed (mock QSettings). Do not hardcode the real server URL in tests — always use `KILLSWITCH_URL_OVERRIDE`.
 
   **Recommended Agent Profile**:
   - Category: `unspecified-low` — Reason: Test writing, follows established patterns
@@ -558,18 +578,22 @@ pyinstaller PhantastLab.spec
   - pytest-mock: `mocker.patch("module.function", return_value=...)`
   - QSettings mock: `mocker.patch("src.services.killswitch_persistence.QSettings")`
   - urlopen mock: `mocker.patch("urllib.request.urlopen")`
+  - Mock HTTP server: `http.server.HTTPServer` + `BaseHTTPRequestHandler` — stdlib, no dependency
+  - Test seam: `KILLSWITCH_URL_OVERRIDE` env var — set in Task 5, used here to redirect to mock server
+  - HMAC test secret: Use a known test secret like `"test-secret-for-qa"` — never the real production secret
 
   **Acceptance Criteria** (agent-executable only):
   - [ ] `pytest tests/services/test_killswitch_integration.py -v` — all tests pass
   - [ ] Coverage of all 10 decision matrix rows
   - [ ] Network error scenarios covered (DNS, timeout, SSL, empty, invalid JSON)
   - [ ] Replay protection test exists
+  - [ ] `KILLSWITCH_URL_OVERRIDE` is used in all tests (no hardcoded real URLs)
 
   **QA Scenarios** (MANDATORY):
   ```
   Scenario: Full kill→unkill cycle
     Tool: Bash (pytest)
-    Steps: (1) Server returns "kill" → verify blocked, flags set. (2) Server returns "unkill" → verify allowed, flags cleared.
+    Steps: (1) Set mock server to return "kill" → verify blocked, flags set. (2) Set mock server to return "unkill" → verify allowed, flags cleared. Use KILLSWITCH_URL_OVERRIDE env var.
     Expected: First call returns False, second returns True, persistence backends match state
     Evidence: .sisyphus/evidence/task-6-kill-unkill-cycle.txt
 
@@ -586,7 +610,7 @@ pyinstaller PhantastLab.spec
     Evidence: .sisyphus/evidence/task-6-replay.txt
   ```
 
-  **Commit**: YES | Message: `test(killswitch): add integration tests for decision matrix` | Files: [tests/services/test_killswitch_integration.py]
+  **Commit**: YES | Message: `test(killswitch): add integration tests for decision matrix` | Files: [tests/services/test_killswitch_integration.py, tests/conftest.py]
 
 ---
 
@@ -697,7 +721,7 @@ pyinstaller PhantastLab.spec
   - [ ] `pytest tests/services/test_killswitch_obfuscation.py -v` — all tests pass
   - [ ] `ruff check src/services/killswitch_obfuscation.py` — no errors
   - [ ] `deobfuscate_string(obfuscate_string("hello", key), key) == "hello"`
-  - [ ] No PyQt6 imports: `grep -c "PyQt6" src/services/killswitch_obfuscation.py` returns 0
+  - [ ] No PyQt6 imports: `Select-String -Path "src/services/killswitch_obfuscation.py" -Pattern "PyQt6"` returns no matches
 
   **QA Scenarios** (MANDATORY):
   ```
@@ -757,10 +781,11 @@ pyinstaller PhantastLab.spec
 
   **Acceptance Criteria** (agent-executable only):
   - [ ] `pytest tests/ -v` — all tests still pass
-  - [ ] `grep -r "https://" src/services/killswitch.py` returns no matches (URL is obfuscated)
-  - [ ] `grep -r "PHANTASTLAB_KILLED" src/services/killswitch_persistence.py` returns no matches
-  - [ ] `grep -r "killswitch/killed" src/services/killswitch_persistence.py` returns no matches
-  - [ ] `strings` command on the .pyc does not reveal the server URL
+  - [ ] `Select-String -Path src/services/killswitch.py -Pattern "https://"` returns no matches (URL is obfuscated)
+  - [ ] `Select-String -Path src/services/killswitch_persistence.py -Pattern "PHANTASTLAB_KILLED"` returns no matches
+  - [ ] `Select-String -Path src/services/killswitch_persistence.py -Pattern "killswitch/killed"` returns no matches
+  - [ ] No sensitive strings visible via `Select-String` on .pyc files
+  - [ ] `deobfuscate_string()` is called at module import time, not at call time (runtime deobfuscation)
 
   **QA Scenarios** (MANDATORY):
   ```
@@ -776,11 +801,11 @@ pyinstaller PhantastLab.spec
     Expected: No matches found for any sensitive string
     Evidence: .sisyphus/evidence/task-9-no-plaintext.txt
 
-  Scenario: Anti-tamper — modified module detected
+  Scenario: Runtime deobfuscation works after obfuscation applied
     Tool: Bash (pytest)
-    Steps: Add a whitespace change to killswitch.py. Verify hash check fails.
-    Expected: Hash mismatch detected (if self-verification implemented)
-    Evidence: .sisyphus/evidence/task-9-anti-tamper.txt
+    Steps: After obfuscation applied, call `deobfuscate_string()` with the encoded values and key. Verify the server URL and HMAC secret are recovered correctly.
+    Expected: Deobfuscated strings match original plaintext values exactly
+    Evidence: .sisyphus/evidence/task-9-deobfuscation.txt
   ```
 
   **Commit**: YES | Message: `feat(killswitch): apply string and code obfuscation` | Files: [src/services/killswitch.py, src/services/killswitch_persistence.py]
@@ -789,23 +814,21 @@ pyinstaller PhantastLab.spec
 
 - [ ] 10. PyInstaller Hardening
 
-  **What to do**: Update the PyInstaller spec to enable bytecode encryption and verify the killswitch is properly bundled. Implementation:
+  **What to do**: Update the PyInstaller spec with hardening measures compatible with current PyInstaller versions. The `--key` / `PyiBlockCipher` cipher feature has been removed from modern PyInstaller and raises `RemovedCipherFeatureError`. Instead, use these alternative hardening approaches:
   1. Open `PhantastLab.spec`
-  2. Add `--key` parameter to the PYZ construction: `pyz = PYZ(a.pure, cipher=block_cipher)` where `block_cipher` uses a key
-  3. Add the block_cipher initialization at the top of the spec:
-     ```python
-     block_cipher = pyimod02_crypto.PyiBlockCipher(key='CHANGE_THIS_TO_RANDOM_32CHAR_KEY')
-     ```
-     — Note: The actual key should be a randomly generated 32-character string, not the placeholder
-  4. Verify `src/services/killswitch*.py` files are included in the analysis (they should be auto-detected via imports from main.py)
-  5. If any killswitch modules are not auto-detected, add them to `hiddenimports`
+  2. Enable `strip=True` in the EXE section (currently `strip=False`) — removes debug symbols from the binary
+  3. Set `optimize=2` in the Analysis section (currently `optimize=0`) — applies Python bytecode optimization (removes docstrings, asserts)
+  4. Add killswitch modules to `hiddenimports` explicitly to ensure they're bundled: `hiddenimports=['src.services.killswitch', 'src.services.hw_fingerprint', 'src.services.killswitch_persistence', 'src.services.killswitch_hmac', 'src.services.killswitch_obfuscation']`
+  5. Verify `src/services/killswitch*.py` files are included in the analysis
   6. Build the EXE: `pyinstaller PhantastLab.spec`
   7. Verify the built EXE runs correctly:
      - With mock server returning "ok" → app launches
      - With mock server returning "kill" → app exits silently
-  8. Verify `strings PhantastLab.exe | grep "https://"` does not reveal the server URL
+   8. Verify sensitive strings are not in the EXE binary: use `Select-String -Path dist/PhantastLab.exe -Pattern "https://" -Encoding byte` or a binary search approach
 
-  **Must NOT do**: Do not add UPX compression to Python modules (already applied to binaries). Do not modify the app icon or metadata. Do not enable `console=True`.
+  **Why not PyiBlockCipher**: The `--key` / `cipher=block_cipher` mechanism (`pyimod02_crypto.PyiBlockCipher`) was removed from PyInstaller and raises `RemovedCipherFeatureError` at import time. The current hardening relies on: (1) string obfuscation in Task 8-9, (2) bytecode optimization (`optimize=2`), (3) symbol stripping (`strip=True`), and (4) the single-file EXE packaging itself.
+
+  **Must NOT do**: Do not use `PyiBlockCipher` or `--key` (removed feature). Do not modify the app icon or metadata. Do not enable `console=True`.
 
   **Recommended Agent Profile**:
   - Category: `quick` — Reason: Small spec file change + verification build
@@ -815,21 +838,23 @@ pyinstaller PhantastLab.spec
   **Parallelization**: Can Parallel: NO | Wave 3 | Blocks: [F1-F4] | Blocked By: [7]
 
   **References**:
-  - Current spec: `PhantastLab.spec` — PYZ on line 17, EXE on line 19-38
-  - PyInstaller bytecode encryption: `pyimod02_crypto.PyiBlockCipher(key='...')` — requires `--key` flag
-  - Hidden imports: `hiddenimports=[]` on line 9 — add module names if auto-detection fails
+  - Current spec: `PhantastLab.spec` — Analysis on line 4-16, PYZ on line 17, EXE on line 19-38
+  - `optimize` parameter: `PhantastLab.spec:15` — currently `optimize=0`, change to `optimize=2`
+  - `strip` parameter: `PhantastLab.spec:28` — currently `strip=False`, change to `strip=True`
+  - `hiddenimports`: `PhantastLab.spec:9` — currently `[]`, add killswitch module names
   - Build command: `pyinstaller PhantastLab.spec` — from project root
+  - Removed cipher: `pyimod02_crypto.PyiBlockCipher` raises `RemovedCipherFeatureError` — do NOT use
 
   **Acceptance Criteria** (agent-executable only):
   - [ ] `pyinstaller PhantastLab.spec` completes without errors
   - [ ] Built EXE exists in `dist/PhantastLab.exe`
   - [ ] EXE launches normally with mock server returning "ok"
   - [ ] EXE exits silently with mock server returning "kill"
-  - [ ] `strings dist/PhantastLab.exe | grep -i "phantast"` does not reveal killswitch URL
+  - [ ] `Select-String -Path dist/PhantastLab.exe -Pattern "kill" -Encoding byte` does not reveal killswitch URL in plaintext
 
   **QA Scenarios** (MANDATORY):
   ```
-  Scenario: Build succeeds with encryption
+  Scenario: Build succeeds with hardening options
     Tool: Bash
     Steps: Run `pyinstaller PhantastLab.spec`. Check exit code.
     Expected: Exit code 0, dist/PhantastLab.exe exists
@@ -837,18 +862,18 @@ pyinstaller PhantastLab.spec
 
   Scenario: EXE respects killswitch
     Tool: Bash
-    Steps: Start local mock server returning {"status":"kill",...}. Run dist/PhantastLab.exe.
-    Expected: Process exits immediately with code 0
+    Steps: (1) Start mock server: `Start-Process python -ArgumentList "tests/mock_server.py --response kill --port 18765" -WindowStyle Hidden` (2) Set `$env:KILLSWITCH_URL_OVERRIDE="http://localhost:18765"` (3) Run `dist/PhantastLab.exe` and capture exit code
+    Expected: Process exits with code 0 within 3s
     Evidence: .sisyphus/evidence/task-10-exe-kill.txt
 
   Scenario: Sensitive strings not extractable
-    Tool: Bash
-    Steps: Run `strings dist/PhantastLab.exe` and search for server domain, HMAC secret
-    Expected: Neither string found in plaintext
+    Tool: Bash (PowerShell)
+    Steps: Run `[System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes("dist/PhantastLab.exe"))` and search for server domain, HMAC secret plaintext
+    Expected: Neither string found in the binary
     Evidence: .sisyphus/evidence/task-10-strings-check.txt
   ```
 
-  **Commit**: YES | Message: `build(killswitch): enable PyInstaller bytecode encryption` | Files: [PhantastLab.spec]
+  **Commit**: YES | Message: `build(killswitch): harden PyInstaller spec with strip and optimize` | Files: [PhantastLab.spec]
 
 ---
 
@@ -857,9 +882,101 @@ pyinstaller PhantastLab.spec
 > **Do NOT auto-proceed after verification. Wait for user's explicit approval before marking work complete.**
 > **Never mark F1-F4 as checked before getting user's okay.** Rejection or user feedback -> fix -> re-run -> present again -> wait for okay.
 - [ ] F1. Plan Compliance Audit — oracle
+
+  **What to do**: Verify every task in the plan has been implemented as specified. Check each acceptance criterion against actual code.
+  **QA Scenarios**:
+  ```
+  Scenario: All acceptance criteria met
+    Tool: Bash (pytest)
+    Steps: Run killswitch tests `pytest tests/services/test_killswitch*.py tests/services/test_hw_fingerprint.py tests/services/test_killswitch_persistence.py tests/services/test_killswitch_hmac.py tests/services/test_killswitch_obfuscation.py -v`. Verify all pass.
+    Expected: All killswitch tests pass, zero failures
+    Evidence: .sisyphus/evidence/F1-test-results.txt
+
+  Scenario: All plan files exist
+    Tool: Bash
+    Steps: Check each deliverable file exists: src/services/killswitch.py, src/services/hw_fingerprint.py, src/services/killswitch_persistence.py, src/services/killswitch_hmac.py, src/services/killswitch_obfuscation.py, server/worker.js, tests/services/test_killswitch.py
+    Expected: All files exist and are non-empty
+    Evidence: .sisyphus/evidence/F1-files-exist.txt
+
+  Scenario: Decision matrix fully covered
+    Tool: Bash (pytest)
+    Steps: Run `pytest tests/services/test_killswitch.py -v -k "row"`. Count distinct row tests.
+    Expected: At least 10 test functions covering all decision matrix rows
+    Evidence: .sisyphus/evidence/F1-decision-matrix.txt
+  ```
+
 - [ ] F2. Code Quality Review — unspecified-high
-- [ ] F3. Real Manual QA — unspecified-high (+ playwright if UI)
+
+  **What to do**: Lint and code quality review of all killswitch modules.
+  **QA Scenarios**:
+  ```
+  Scenario: Ruff lint passes on all new files
+    Tool: Bash
+    Steps: Run `ruff check src/services/killswitch.py src/services/hw_fingerprint.py src/services/killswitch_persistence.py src/services/killswitch_hmac.py src/services/killswitch_obfuscation.py`
+    Expected: Zero errors, zero warnings
+    Evidence: .sisyphus/evidence/F2-ruff.txt
+
+  Scenario: No PyQt in pure-Python modules
+    Tool: Bash (PowerShell Select-String)
+    Steps: Run `Select-String -Path src/services/hw_fingerprint.py,src/services/killswitch_obfuscation.py -Pattern "PyQt6"`
+    Expected: No matches found
+    Evidence: .sisyphus/evidence/F2-no-pyqt.txt
+
+  Scenario: No hardcoded sensitive strings
+    Tool: Bash (PowerShell Select-String)
+    Steps: Run `Select-String -Path src/services/killswitch*.py -Pattern "https://","PHANTASTLAB_KILLED","killswitch/killed"`
+    Expected: No plaintext matches
+    Evidence: .sisyphus/evidence/F2-no-plaintext.txt
+  ```
+
+- [ ] F3. Real Manual QA — unspecified-high
+
+  **What to do**: Run the actual application with mock server to verify killswitch behavior end-to-end.
+  **Test Seam**: Use `KILLSWITCH_URL_OVERRIDE=http://localhost:18765` environment variable (added in Task 5) to redirect the killswitch to a local mock server. Start `tests/mock_server.py` before running the app.
+  **QA Scenarios**:
+  ```
+  Scenario: App launches when server says ok
+    Tool: Bash
+    Steps: (1) Start mock server: `Start-Process python -ArgumentList "tests/mock_server.py --response ok --port 18765" -WindowStyle Hidden` (2) Set env: `$env:KILLSWITCH_URL_OVERRIDE="http://localhost:18765"` (3) Run `python src/main.py`. Wait 5s and check if process is still running via `Get-Process -Name python -ErrorAction SilentlyContinue`.
+    Expected: python process is still running after 5s (killswitch allowed startup)
+    Evidence: .sisyphus/evidence/F3-app-ok.txt
+
+  Scenario: App exits when server says kill
+    Tool: Bash
+    Steps: (1) Start mock server: `Start-Process python -ArgumentList "tests/mock_server.py --response kill --port 18765" -WindowStyle Hidden` (2) Set env: `$env:KILLSWITCH_URL_OVERRIDE="http://localhost:18765"` (3) Run `python src/main.py` and capture exit code via `$LASTEXITCODE`.
+    Expected: $LASTEXITCODE is 0, process exits within 3s, stdout and stderr are empty
+    Evidence: .sisyphus/evidence/F3-app-kill.txt
+
+  Scenario: App exits when killed and offline
+    Tool: Bash
+    Steps: (1) First run with kill response to set local flag (use Start-Process as above). (2) Stop mock server: `Stop-Process -Name python` (3) Remove KILLSWITCH_URL_OVERRIDE. (4) Run `python src/main.py` and check exit code.
+    Expected: $LASTEXITCODE is 0 (fail-closed with flag, no server needed)
+    Evidence: .sisyphus/evidence/F3-app-offline-killed.txt
+  ```
+
 - [ ] F4. Scope Fidelity Check — deep
+
+  **What to do**: Verify no scope creep — no UI changes, no existing business logic modifications, no new dependencies.
+  **QA Scenarios**:
+  ```
+  Scenario: No UI files modified
+    Tool: Bash (git diff)
+    Steps: Run `git diff --name-only` and check if any files in src/ui/ are modified
+    Expected: Zero files in src/ui/ modified
+    Evidence: .sisyphus/evidence/F4-no-ui.txt
+
+  Scenario: No new dependencies added
+    Tool: Bash
+    Steps: Compare requirements_build.txt against git HEAD. Check no new lines added.
+    Expected: requirements_build.txt unchanged
+    Evidence: .sisyphus/evidence/F4-no-deps.txt
+
+  Scenario: Existing tests still pass
+    Tool: Bash (pytest)
+    Steps: Run pre-existing test suite (excluding new killswitch tests)
+    Expected: All pre-existing tests pass unchanged
+    Evidence: .sisyphus/evidence/F4-existing-tests.txt
+  ```
 
 ## Commit Strategy
 - Atomic commits per task (see each task's commit message)
@@ -873,7 +990,7 @@ pyinstaller PhantastLab.spec
 4. Cloudflare Worker responds to `/check` with HMAC-signed responses
 5. Hardware fingerprint is stable across restarts on the same machine
 6. Kill flag persists across app restarts (all 3 backends)
-7. Obfuscated strings are not readable via `strings` command on the EXE
-8. PyInstaller build succeeds with bytecode encryption enabled
-9. Zero new third-party dependencies
+7. Obfuscated strings are not readable via binary inspection of the EXE
+8. PyInstaller build succeeds with strip + optimize hardening
+9. Zero new third-party dependencies in Python client (JS server tooling excluded)
 10. No PyQt imports in fingerprint or obfuscation modules
